@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="AI input Tag Hebrew OT-tokenised2.txt" />
+    <None Remove="Re Further experiments.msg" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Parser\Parser.csproj" />
+    <ProjectReference Include="..\PromptBuilder\PromptBuilder.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="TA\TAGNT\1.TAGNT Mat-Jhn - Translators Amalgamated Greek NT - STEPBible.org CC-BY.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TA\TAGNT\2.TAGNT Act-Rev - Translators Amalgamated Greek NT - STEPBible.org CC-BY.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TA\TAHOT\1. TAHOT Gen-Deu - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TA\TAHOT\2. TAHOT Jos-Est - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TA\TAHOT\3. TAHOT Job-Sng - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="TA\TAHOT\4. TAHOT Isa-Mal - Translators Amalgamated Hebrew OT - STEPBible.org CC BY.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
