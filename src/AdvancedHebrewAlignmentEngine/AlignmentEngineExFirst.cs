@@ -154,7 +154,8 @@ Return ONLY the chosen word.
 
             var requestBody = new
             {
-                model = "gpt-4.1-mini", // cheap + good enough
+                // gpt-4.1-mini is a cheaper variant of gpt-4.1, good for simple disambiguation tasks. Adjust as needed based on cost/performance tradeoff.
+                model = "gpt-4.1-mini", // cheap + good enough $.80/MTokens
                 messages = new[]
                 {
             new { role = "user", content = prompt }

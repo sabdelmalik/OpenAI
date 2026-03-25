@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "Aligner": {
-      "commandName": "Project",
-      "commandLineArgs": "\"D:\\Documents\\MyProjects\\NIV_tagging\\NIV_Work\\niv-2025-05-17 - OT.txt\""
-    }
-  }
-}

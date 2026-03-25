@@ -65,10 +65,10 @@ namespace HebrewAlignmentEngineAdvanced
             var results = await engine.AlignAsync(tokens, target, null, verseReference, hebrewVerse, targetVerse);
 
             Console.OutputEncoding = Encoding.UTF8;
-            //foreach (var r in results.Edges)
-            //{
-            //    Console.WriteLine($"{r.Source} -> {r.Target} ({r.Score:F2})");
-            //}
+            foreach (var r in results.Edges)
+            {
+                Console.WriteLine($"{r.Source} -> {r.Target} ({r.Score:F2})");
+            }
 
             foreach (var targetWord in target)
             {

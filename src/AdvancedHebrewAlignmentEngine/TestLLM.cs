@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json;
 
 namespace AdvancedHebrewAlignmentEngine
 {
@@ -32,7 +33,45 @@ namespace AdvancedHebrewAlignmentEngine
     /// </summary>
     internal class TestLLM
     {
-       public string GetPrompt(string verses)
+        private readonly string _apiKey;
+        private readonly HttpClient _httpClient;
+
+        public TestLLM(string apiKey)
+        {
+            _apiKey = apiKey;
+            _httpClient = new HttpClient();
+            _httpClient.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _apiKey);
+        }
+
+        private async Task<string> AlignAsync()
+        {
+            var prompt = GetPrompt(@"בְּ רֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַ שָּׁמַ֖יִם וְ אֵ֥ת הָ אָֽרֶץ");
+
+            var requestBody = new
+            {
+                model = "gpt-4.1-mini", // cheap + good enough $.80/MTokens
+                messages = new[]
+                    {
+                        new { role = "user", content = prompt }
+                    },
+                    max_tokens = 10,
+                    temperature = 0
+            };
+            var json = JsonSerializer.Serialize(requestBody);
+
+            var response = await _httpClient.PostAsync(
+                "https://api.openai.com/v1/chat/completions",
+                new StringContent(json, Encoding.UTF8, "application/json"));
+
+            response.EnsureSuccessStatusCode();
+
+            var responseJson = await response.Content.ReadAsStringAsync();
+            var parsed = JsonDocument.Parse(responseJson);
+
+        }
+
+        public string GetPrompt(string verses)
         {
             return $@"Given the following Hebrew verses, provide a detailed morphological analysis for each word, including its lemma, part of speech, and any relevant morphological features. The analysis should be structured in a clear and organized manner, allowing for easy comparison between the original Hebrew text and the morphological breakdown. Here are the verses:\n\n{verses}";
         }
