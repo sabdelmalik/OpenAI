@@ -87,6 +87,8 @@ namespace LLMHebrewAlignment
         private readonly HttpClient _http;
         private readonly Dictionary<string, string> _cache = new();
 
+        private ExampleDatabase db = new ExampleDatabase(@"c:\tmp\AlignmentDB.json")
+
         public AlignmentService(string apiKey)
         {
             _http = new HttpClient();
@@ -94,9 +96,9 @@ namespace LLMHebrewAlignment
                 new AuthenticationHeaderValue("Bearer", apiKey);
         }
 
-        public async Task<AlignmentResult> AlignVerseAsync(object verseJson, ExampleSelector selector = null)
+        public async Task<AlignmentResult> AlignVerseAsync(Verse verse, ExampleSelector selector = null)
         {
-            string input = JsonSerializer.Serialize(verseJson);
+            string input = JsonSerializer.Serialize(verse);
 
             if (_cache.ContainsKey(input))
                 return ParseResult(_cache[input]);
@@ -105,8 +107,12 @@ namespace LLMHebrewAlignment
 
             if (selector != null)
             {
-                var lemmas = ExtractLemmas(verseJson);
-                examples = selector.GetBestExamples(lemmas);
+                List<HebrewFeature> features = new();
+                foreach (var token in verse.hebrew.tokens)
+                {
+                    features.Add(new() { Lemma = token.lemma, POS = token.pos, Morph = token.morph});
+                }
+                examples = selector.GetBestExamples(features);
             }
 
             string prompt = BuildPrompt(input, examples);
@@ -119,12 +125,21 @@ namespace LLMHebrewAlignment
                 response = await CallLLM(prompt);
             }
 
+            db.AddExample(new ExampleAlignment
+            {
+                Reference = verse.reference,
+                HebrewLemmas = ExtractLemmasFromVerse(verse), // reuse your feature extractor
+                POS = ExtractPOSFromVerse(verse),
+                MorphPatterns = ExtractMorphFromVerse(verse),
+                JsonAlignment = JsonSerializer.Serialize(result)
+            });
+
             _cache[input] = response;
 
             return ParseResult(response);
         }
 
-        private List<string> ExtractLemmas(object verseJson)
+        private List<string> ExtractLemmasFromVerse(object verseJson)
         {
             var json = JsonSerializer.Serialize(verseJson);
             var doc = JsonDocument.Parse(json);
@@ -137,6 +152,42 @@ namespace LLMHebrewAlignment
                 .EnumerateArray())
             {
                 if (token.TryGetProperty("lemma", out var l))
+                    lemmas.Add(l.GetString());
+            }
+
+            return lemmas;
+        }
+        private List<string> ExtractPOSFromVerse(object verseJson)
+        {
+            var json = JsonSerializer.Serialize(verseJson);
+            var doc = JsonDocument.Parse(json);
+
+            var lemmas = new List<string>();
+
+            foreach (var token in doc.RootElement
+                .GetProperty("hebrew")
+                .GetProperty("tokens")
+                .EnumerateArray())
+            {
+                if (token.TryGetProperty("pos", out var l))
+                    lemmas.Add(l.GetString());
+            }
+
+            return lemmas;
+        }
+        private List<string> ExtractMorphFromVerse(object verseJson)
+        {
+            var json = JsonSerializer.Serialize(verseJson);
+            var doc = JsonDocument.Parse(json);
+
+            var lemmas = new List<string>();
+
+            foreach (var token in doc.RootElement
+                .GetProperty("hebrew")
+                .GetProperty("tokens")
+                .EnumerateArray())
+            {
+                if (token.TryGetProperty("morf", out var l))
                     lemmas.Add(l.GetString());
             }
 
@@ -155,7 +206,7 @@ Examples:
                 foreach (var ex in examples)
                 {
                     exampleText += $@"Reference: {{ex.Reference}}
-{ ex.JsonAlignment}
+{ex.JsonAlignment}
 
                     ";
                 }
@@ -181,10 +232,10 @@ Return ONLY JSON:
     }}
 }}
 
-{ exampleText}
+{exampleText}
         
 Input:
-{ json}
+{json}
 ";
         }
 
@@ -324,129 +375,130 @@ Input:
 
     // ================= MODELS =================
     public class AlignmentResult
-{
-    public List<AlignmentPair> alignments { get; set; }
-}
-
-public class AlignmentPair
-{
-    public List<int> hebrew { get; set; }
-    public List<int> target { get; set; }
-}
-
-// ================= INTERLINEAR EXPORT =================
-public class InterlinearBuilder
-{
-    public static void Print(AlignmentResult result, dynamic verse)
     {
-        foreach (var align in result.alignments)
+        public List<AlignmentPair> alignments { get; set; }
+    }
+
+    public class AlignmentPair
+    {
+        public List<int> hebrew { get; set; }
+        public List<int> target { get; set; }
+    }
+
+    // ================= INTERLINEAR EXPORT =================
+    public class InterlinearBuilder
+    {
+        public static void Print(AlignmentResult result, dynamic verse)
         {
-            Console.Write("Hebrew: ");
-            foreach (var i in align.hebrew)
-                Console.Write(verse.hebrew.tokens[i].surface + " ");
+            foreach (var align in result.alignments)
+            {
+                Console.Write("Hebrew: ");
+                foreach (var i in align.hebrew)
+                    Console.Write(verse.hebrew.tokens[i].surface + " ");
 
-            Console.Write(" -> English: ");
-            foreach (var i in align.target)
-                Console.Write(verse.target.tokens[i].word + " ");
+                Console.Write(" -> English: ");
+                foreach (var i in align.target)
+                    Console.Write(verse.target.tokens[i].word + " ");
 
-            Console.WriteLine();
+                Console.WriteLine();
+            }
         }
     }
-}
 
-// ================= COST TRACKER =================
-public class CostTracker
-{
-    private const double InputCostPer1K = 0.0003;
-    private const double OutputCostPer1K = 0.0006;
-
-    public double TotalCost { get; private set; } = 0;
-
-    public double AddUsage(int inputTokens, int outputTokens)
+    // ================= COST TRACKER =================
+    public class CostTracker
     {
-        double cost = (inputTokens / 1000.0 * InputCostPer1K) +
-                      (outputTokens / 1000.0 * OutputCostPer1K);
+        private const double InputCostPer1K = 0.0003;
+        private const double OutputCostPer1K = 0.0006;
 
-        TotalCost += cost;
+        public double TotalCost { get; private set; } = 0;
 
-        return cost;
-    }
-
-
-// ================= UPDATED CALL WITH COST =================
-private async Task<(string content, int inputTokens, int outputTokens)> CallLLMWithUsage(string prompt)
-{
-    var body = new
-    {
-        model = "gpt-4.1-mini",
-        input = new[]
+        public double AddUsage(int inputTokens, int outputTokens)
         {
+            double cost = (inputTokens / 1000.0 * InputCostPer1K) +
+                          (outputTokens / 1000.0 * OutputCostPer1K);
+
+            TotalCost += cost;
+
+            return cost;
+        }
+
+
+        // ================= UPDATED CALL WITH COST =================
+        private async Task<(string content, int inputTokens, int outputTokens)> CallLLMWithUsage(string prompt)
+        {
+            var body = new
+            {
+                model = "gpt-4.1-mini",
+                input = new[]
+                {
                     new { role = "user", content = prompt }
                 },
-        temperature = 0,
-        max_output_tokens = 800
-    };
+                temperature = 0,
+                max_output_tokens = 800
+            };
 
-    var json = JsonSerializer.Serialize(body);
+            var json = JsonSerializer.Serialize(body);
 
-    var response = await _http.PostAsync(
-        "https://api.openai.com/v1/responses",
-        new StringContent(json, Encoding.UTF8, "application/json"));
+            var response = await _http.PostAsync(
+                "https://api.openai.com/v1/responses",
+                new StringContent(json, Encoding.UTF8, "application/json"));
 
-    var str = await response.Content.ReadAsStringAsync();
-    var parsed = JsonDocument.Parse(str);
+            var str = await response.Content.ReadAsStringAsync();
+            var parsed = JsonDocument.Parse(str);
 
-    var content = parsed.RootElement
-        .GetProperty("output")[0]
-        .GetProperty("content")[0]
-        .GetProperty("text")
-        .GetString();
+            var content = parsed.RootElement
+                .GetProperty("output")[0]
+                .GetProperty("content")[0]
+                .GetProperty("text")
+                .GetString();
 
-    var usage = parsed.RootElement.GetProperty("usage");
+            var usage = parsed.RootElement.GetProperty("usage");
 
-    int inputTokens = usage.GetProperty("input_tokens").GetInt32();
-    int outputTokens = usage.GetProperty("output_tokens").GetInt32();
+            int inputTokens = usage.GetProperty("input_tokens").GetInt32();
+            int outputTokens = usage.GetProperty("output_tokens").GetInt32();
 
-    return (content, inputTokens, outputTokens);
-}
+            return (content, inputTokens, outputTokens);
+        }
 
-// ================= EXAMPLE =================
-class Program
-{
-    static async Task Main()
-    {
-        var service = new AlignmentService("YOUR_API_KEY");
-
-        var verse = new
+        // ================= EXAMPLE =================
+        class Program
         {
-            reference = "Genesis 1:1",
-            hebrew = new
+            static async Task Main()
             {
-                text = "בראשית ברא אלהים",
-                tokens = new[]
+                var service = new AlignmentService("YOUR_API_KEY");
+
+                Verse verse = new()
                 {
-                        new { i = 0, surface = "בראשית", lemma = "ראשית", pos = "noun", morph = "construct", gloss = "beginning" },
-                        new { i = 1, surface = "ברא", lemma = "ברא", pos = "verb", morph = "qal perfect", gloss = "create" },
-                        new { i = 2, surface = "אלהים", lemma = "אלהים", pos = "noun", morph = "plural", gloss = "God" }
-                    }
-            },
-            target = new
-            {
-                text = "In the beginning God created",
-                tokens = new[]
+                    reference = "Genesis 1:1",
+                    hebrew = new()
+                    {
+                        text = "בראשית ברא אלהים",
+                        tokens = new()
                 {
-                        new { i = 0, word = "In" },
-                        new { i = 1, word = "the" },
-                        new { i = 2, word = "beginning" },
-                        new { i = 3, word = "God" },
-                        new { i = 4, word = "created" }
+                        new() { i = 0, surface = "בראשית", lemma = "ראשית", pos = "noun", morph = "construct", gloss = "beginning" },
+                        new() { i = 1, surface = "ברא", lemma = "ברא", pos = "verb", morph = "qal perfect", gloss = "create" },
+                        new() { i = 2, surface = "אלהים", lemma = "אלהים", pos = "noun", morph = "plural", gloss = "God" }
                     }
+                    },
+                    target = new()
+                    {
+                        text = "In the beginning God created",
+                        tokens = new()
+                {
+                        new() { i = 0, word = "In" },
+                        new() { i = 1, word = "the" },
+                        new() { i = 2, word = "beginning" },
+                        new() { i = 3, word = "God" },
+                        new() { i = 4, word = "created" }
+                    }
+                    }
+                };
+
+                var result = await service.AlignVerseAsync(verse);
+
+                InterlinearBuilder.Print(result, verse);
             }
-        };
-
-        var result = await service.AlignVerseAsync(verse);
-
-        InterlinearBuilder.Print(result, verse);
+        }
     }
-}
 }

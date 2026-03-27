@@ -82,5 +82,29 @@ namespace AdvancedAligner.Properties {
                 this["MaxPromptVerses"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool OutputPromptFiles {
+            get {
+                return ((bool)(this["OutputPromptFiles"]));
+            }
+            set {
+                this["OutputPromptFiles"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool OutputResultFiles {
+            get {
+                return ((bool)(this["OutputResultFiles"]));
+            }
+            set {
+                this["OutputResultFiles"] = value;
+            }
+        }
     }
 }

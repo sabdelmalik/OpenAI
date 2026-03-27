@@ -130,7 +130,7 @@ namespace OpenAiAPI
             {
                 var body = new
                 {
-                    model = "gpt-4.1",
+                    model = modelToUse,
                     input = new[]
                     {
                     new { role = "user", content = prompt }
@@ -268,6 +268,7 @@ Align Hebrew tokens to target tokens. Pay attention to the Hebrew token details:
 Rules:
 - Align by meaning
 - Use token indices
+- A TOKEN INDEX CAN BE USED ONLY ONCE IN THE ALIGNMENT
 - Allow one-to-many and many-to-many alignments
 - Do not combine articles and conjunctions with other words if they have a Hebrew token to align to
 - Combine target tokens when it makes morphological sense
@@ -364,8 +365,8 @@ Input:
     public class PromptResult
     {
         // gpt-4.1-mini pricing
-        private double InputCostPer1K = 0.0004;
-        private double OutputCostPer1K = 0.00016;
+        private double InputCostPer1K =  0.0004;
+        private double OutputCostPer1K = 0.0016;
 
         public PromptResult(bool success,string prompt, string result, int inputTokens, int outputTokens, GptModel model, string errorString)    
         {

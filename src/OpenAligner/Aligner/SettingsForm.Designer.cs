@@ -34,6 +34,8 @@
             buttonCancel = new Button();
             label2 = new Label();
             maxPromptVerses = new NumericUpDown();
+            cbPromptFiles = new CheckBox();
+            cbResultFiles = new CheckBox();
             ((System.ComponentModel.ISupportInitialize)maxPromptVerses).BeginInit();
             SuspendLayout();
             // 
@@ -58,7 +60,7 @@
             // buttonOK
             // 
             buttonOK.DialogResult = DialogResult.OK;
-            buttonOK.Location = new Point(333, 200);
+            buttonOK.Location = new Point(328, 244);
             buttonOK.Name = "buttonOK";
             buttonOK.Size = new Size(112, 34);
             buttonOK.TabIndex = 2;
@@ -69,7 +71,7 @@
             // buttonCancel
             // 
             buttonCancel.DialogResult = DialogResult.Cancel;
-            buttonCancel.Location = new Point(20, 200);
+            buttonCancel.Location = new Point(31, 244);
             buttonCancel.Name = "buttonCancel";
             buttonCancel.Size = new Size(112, 34);
             buttonCancel.TabIndex = 3;
@@ -95,6 +97,26 @@
             maxPromptVerses.TabIndex = 4;
             maxPromptVerses.Value = new decimal(new int[] { 1, 0, 0, 0 });
             // 
+            // cbPromptFiles
+            // 
+            cbPromptFiles.AutoSize = true;
+            cbPromptFiles.Location = new Point(31, 169);
+            cbPromptFiles.Name = "cbPromptFiles";
+            cbPromptFiles.Size = new Size(199, 29);
+            cbPromptFiles.TabIndex = 5;
+            cbPromptFiles.Text = "Output Prompt Files";
+            cbPromptFiles.UseVisualStyleBackColor = true;
+            // 
+            // cbResultFiles
+            // 
+            cbResultFiles.AutoSize = true;
+            cbResultFiles.Location = new Point(273, 169);
+            cbResultFiles.Name = "cbResultFiles";
+            cbResultFiles.Size = new Size(186, 29);
+            cbResultFiles.TabIndex = 5;
+            cbResultFiles.Text = "Output Result Files";
+            cbResultFiles.UseVisualStyleBackColor = true;
+            // 
             // SettingsForm
             // 
             AcceptButton = buttonOK;
@@ -102,6 +124,8 @@
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = buttonCancel;
             ClientSize = new Size(800, 450);
+            Controls.Add(cbResultFiles);
+            Controls.Add(cbPromptFiles);
             Controls.Add(maxPromptVerses);
             Controls.Add(buttonCancel);
             Controls.Add(buttonOK);
@@ -124,5 +148,7 @@
         private Button buttonCancel;
         private Label label2;
         private NumericUpDown maxPromptVerses;
+        private CheckBox cbPromptFiles;
+        private CheckBox cbResultFiles;
     }
 }

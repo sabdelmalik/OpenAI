@@ -1,3 +1,4 @@
+using AdvancedAligner.Examples;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenAiAPI;
@@ -39,6 +40,8 @@ namespace AdvancedAligner
                 services.AddSingleton<TahotParser>();
                 services.AddSingleton<TargetParser>();
                 services.AddSingleton<AlignmentService>();
+                services.AddSingleton<ExamplesDatabase>();
+                services.AddSingleton<ExampleSelector>();
             });
 
 

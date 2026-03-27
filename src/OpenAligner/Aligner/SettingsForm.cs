@@ -36,6 +36,8 @@ namespace AdvancedAligner
             }
 
             maxPromptVerses.Value = Properties.OpenAiSettings.Default.MaxPromptVerses;
+            cbPromptFiles.Checked = Properties.OpenAiSettings.Default.OutputPromptFiles;
+            cbResultFiles.Checked = Properties.OpenAiSettings.Default.OutputResultFiles;
         }
 
         bool modelChanged = false;
@@ -50,6 +52,8 @@ namespace AdvancedAligner
             {
                 Properties.OpenAiSettings.Default.GptModel = comboBoxGptModels.Text;
                 Properties.OpenAiSettings.Default.MaxPromptVerses = (int)maxPromptVerses.Value;
+                Properties.OpenAiSettings.Default.OutputPromptFiles = cbPromptFiles.Checked;
+                Properties.OpenAiSettings.Default.OutputResultFiles = cbResultFiles.Checked;
                 Properties.OpenAiSettings.Default.Save();
             }
         }
