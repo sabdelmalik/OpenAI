@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 
 namespace AdvancedAligner
 {
-    public class OtVerse
+    public class ParserHebrewVerse
     {
-        public OtVerse(string reference)
+        public ParserHebrewVerse(string reference)
         {
             Reference = reference;
             RawTokens = new List<AiRawToken>();

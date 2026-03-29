@@ -16,7 +16,7 @@ namespace AdvancedAligner
         /// <summary>
         /// A sorted dictionary to store the verses of the Hebrew Bible, where the key is an integer index and the value is an OtVerse object containing the verse reference and its associated tokens.
         /// </summary>
-        public SortedDictionary<int, OtVerse> HebrewBible { get; } = new SortedDictionary<int, OtVerse>();
+        public SortedDictionary<int, ParserHebrewVerse> HebrewBible { get; } = new SortedDictionary<int, ParserHebrewVerse>();
 
         SortedDictionary<string, string> morphMap = new SortedDictionary<string, string>();
         /// <summary>
@@ -69,7 +69,7 @@ namespace AdvancedAligner
                     int verseNumber = int.Parse(reference.Split('.')[2]);
 
                     referenceIndices[reference] = verseIndex;
-                    HebrewBible[verseIndex] = new OtVerse(reference);
+                    HebrewBible[verseIndex] = new ParserHebrewVerse(reference);
 
                     // update BookCounts
                     if (!bookCounts.ContainsKey(bookName))

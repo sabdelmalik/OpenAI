@@ -1,3 +1,4 @@
+using AdvancedAligner.ExampleEditor;
 using AdvancedAligner.Examples;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,12 +27,17 @@ namespace AdvancedAligner
         ReferenceRangeSelection referenceRangeSelection;
         SettingsForm settingsForm;
         ExamplesDatabase examplesDatabase;
+        ExampleEditorForm exampleEditorForm;
+
         public MainForm(HebrewBibleParser hebrewBibleParser,
                         TahotParser tahotParser,
                         OshbParser oshbParser,
-                         TargetParser targetParser,
-                         AlignmentService alignmentService,
-                         ExamplesDatabase examplesDatabase)
+                        TargetParser targetParser,
+                        AlignmentService alignmentService,
+                        ExamplesDatabase examplesDatabase,
+                        ReferenceListSelection referenceListSelection,
+                        ReferenceRangeSelection referenceRangeSelection,
+                        ExampleEditorForm exampleEditorForm)
         {
             InitializeComponent();
             this.hebrewBibleParser = hebrewBibleParser;
@@ -40,6 +46,9 @@ namespace AdvancedAligner
             this.oshbParser = oshbParser;
             this.alignmentService = alignmentService;
             this.examplesDatabase = examplesDatabase;
+            this.referenceListSelection = referenceListSelection;
+            this.referenceRangeSelection = referenceRangeSelection;
+            this.exampleEditorForm = exampleEditorForm;
         }
 
         #region MyTrace
@@ -127,7 +136,7 @@ namespace AdvancedAligner
             int inputTokens = 0;
             int outputTokens = 0;
             double cost = 0;
-            TimeSpan time = new TimeSpan(0, 0, 0, 0); ;
+            TimeSpan time = new TimeSpan(0, 0, 0, 0);
             bool success = false;
 
             string folderName = "Alignments";
@@ -138,6 +147,8 @@ namespace AdvancedAligner
 
             foreach (PromptResult verseAlignments in results)
             {
+                if (verseAlignments is null)
+                    return;
                 fileNameIndex++;
                 if (Properties.OpenAiSettings.Default.OutputPromptFiles && !string.IsNullOrEmpty(verseAlignments.prompt))
                 {
@@ -170,8 +181,8 @@ namespace AdvancedAligner
                     foreach (var verseAlignment in verseAlignments.ParsedResult)
                     {
                         int index = hebrewBibleParser.referenceIndices[verseAlignment.reference];
-                        TargetVerse targetVerse = targetParser.TargetBible[index];
-                        OtVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
+                        ParserTargetVerse targetVerse = targetParser.TargetBible[index];
+                        ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
 
                         versesSB.AppendLine($"Verse: {verseAlignment.reference}");
                         foreach (var alignment in verseAlignment.alignments)
@@ -235,27 +246,18 @@ namespace AdvancedAligner
 
         private void listToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (referenceListSelection == null)
+            //referenceListSelection.Initialise(targetParser);
+            //alignmentService = new UserPrompt(hebrewBibleParser, tahotParser, targetParser);
+            // Psa.10.9, Psa.17.14, Psa.18.6, Pro.4.22, Pro.6.27
+            if (referenceListSelection.ShowDialog() == DialogResult.OK)
             {
-                referenceListSelection = new ReferenceListSelection();
+                List<string> list = referenceListSelection.ReferencesList;
+                //string json = alignmentService.BuildPromptOpenAI(list);
+                string outName = $"{list[0]}-{list[list.Count - 1]}";
+                if (list.Count == 1)
+                    outName = list[0];
 
-                referenceListSelection.Initialise(targetParser);
-                //alignmentService = new UserPrompt(hebrewBibleParser, tahotParser, targetParser);
-                // Psa.10.9, Psa.17.14, Psa.18.6, Pro.4.22, Pro.6.27
-                if (referenceListSelection.ShowDialog() == DialogResult.OK)
-                {
-                    List<string> list = referenceListSelection.ReferencesList;
-                    //string json = alignmentService.BuildPromptOpenAI(list);
-                    string outName = $"{list[0]}-{list[list.Count - 1]}";
-                    if (list.Count == 1)
-                        outName = list[0];
-
-                    NewAlign(list, outName);
-                }
-
-
-                referenceListSelection.Dispose();
-                referenceListSelection = null;
+                NewAlign(list, outName);
             }
         }
 
@@ -296,8 +298,8 @@ namespace AdvancedAligner
             foreach (var verseAlignment in verseAlignments)
             {
                 int index = hebrewBibleParser.referenceIndices[verseAlignment.reference];
-                TargetVerse targetVerse = targetParser.TargetBible[index];
-                OtVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
+                ParserTargetVerse targetVerse = targetParser.TargetBible[index];
+                ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
 
                 sb.AppendLine($"Verse: {verseAlignment.reference}");
                 foreach (var alignment in verseAlignment.alignments)
@@ -357,34 +359,19 @@ namespace AdvancedAligner
 
         private void rangeToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (referenceRangeSelection == null)
+            //referenceRangeSelection.Initialise(targetParser);
+            //alignmentService = new UserPrompt(hebrewBibleParser, tahotParser, targetParser);
+            // Psa.10.9, Psa.17.14, Psa.18.6, Pro.4.22, Pro.6.27
+            if (referenceRangeSelection.ShowDialog() == DialogResult.OK)
             {
-                referenceRangeSelection = new ReferenceRangeSelection();
-                //if (targetParser == null || targetParser.VersionBible.Count == 0)
-                //{
-                //    bool versionLoaded = OpenVersion();
-                //    if (!versionLoaded)
-                //        return;
-                //}
+                //string json = alignmentService.BuildPromptOpenAI(referenceRangeSelection.FirstReference, referenceRangeSelection.LastReference);
+                string outName = referenceRangeSelection.FirstReference;
+                if (referenceRangeSelection.FirstReference != referenceRangeSelection.LastReference)
+                    outName += $"-{referenceRangeSelection.LastReference}";
 
-
-                referenceRangeSelection.Initialise(targetParser);
-                //alignmentService = new UserPrompt(hebrewBibleParser, tahotParser, targetParser);
-                // Psa.10.9, Psa.17.14, Psa.18.6, Pro.4.22, Pro.6.27
-                if (referenceRangeSelection.ShowDialog() == DialogResult.OK)
-                {
-                    //string json = alignmentService.BuildPromptOpenAI(referenceRangeSelection.FirstReference, referenceRangeSelection.LastReference);
-                    string outName = referenceRangeSelection.FirstReference;
-                    if (referenceRangeSelection.FirstReference != referenceRangeSelection.LastReference)
-                        outName += $"-{referenceRangeSelection.LastReference}";
-
-                    NewAlign(referenceRangeSelection.FirstReference, referenceRangeSelection.LastReference, outName);
-                }
-
-                referenceRangeSelection.Dispose();
-                referenceRangeSelection = null;
-
+                NewAlign(referenceRangeSelection.FirstReference, referenceRangeSelection.LastReference, outName);
             }
+
         }
 
         private async Task NewAlign(List<string> references, string outName)
@@ -413,6 +400,8 @@ namespace AdvancedAligner
         {
             foreach (var resultItem in result)
             {
+                if (resultItem is null)
+                    return;
                 // Each resultItem is a PromptResult
                 // The ParsedResult property of PromptResult is a List of AlignmentResult
                 // the properties of AlignmentResult are
@@ -575,12 +564,23 @@ namespace AdvancedAligner
 
         private void clearToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            examplesDatabase.Clear();
+            if (MessageBox.Show("Do you want to clear the examples data?", "Clear Examples Data", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                examplesDatabase.Clear();
+            }
         }
 
         private void reloadToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            examplesDatabase.Load();
+            if (MessageBox.Show("Do you want to reload the examples database?", "Reload Examples Database", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                examplesDatabase.Load();
+            }
+        }
+
+        private void editToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            exampleEditorForm.ShowDialog();
         }
     }
 }

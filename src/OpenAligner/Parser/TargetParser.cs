@@ -4,7 +4,7 @@ namespace AdvancedAligner
 {
     public class TargetParser
     {
-        public SortedDictionary<int, TargetVerse> TargetBible { get; } = new SortedDictionary<int, TargetVerse>();
+        public SortedDictionary<int, ParserTargetVerse> TargetBible { get; } = new SortedDictionary<int, ParserTargetVerse>();
 
         public Dictionary<string, int> referenceIndices = new Dictionary<string, int>();
 
@@ -162,7 +162,7 @@ namespace AdvancedAligner
             string[] lines = File.ReadAllLines(versionFilePath);
             Dictionary<string, BookDetails> tempBookCounts = new Dictionary<string, BookDetails>();
 
-            SortedDictionary<int, TargetVerse> tempBible = new SortedDictionary<int, TargetVerse>();
+            SortedDictionary<int, ParserTargetVerse> tempBible = new SortedDictionary<int, ParserTargetVerse>();
             Dictionary<string, int> tempIndices = new Dictionary<string, int>();
 
             string lastBook = string.Empty;
@@ -202,7 +202,7 @@ namespace AdvancedAligner
                 int verseNumber = int.Parse(verseNumberS);
 
                 string translationText = line.Substring(secondSpaceIndex + 1).Trim();
-                TargetVerse verse = new TargetVerse(reference, string.Empty, translationText);
+                ParserTargetVerse verse = new ParserTargetVerse(reference, string.Empty, translationText);
 
                 tempIndices[reference] = referenceIndex;
                 tempBible[referenceIndex] = verse;
@@ -277,7 +277,7 @@ namespace AdvancedAligner
             int updatedIndex = 0;
             for (referenceIndex = 0; referenceIndex < tempBible.Count; referenceIndex++)
             {
-                TargetVerse verse = tempBible[referenceIndex];
+                ParserTargetVerse verse = tempBible[referenceIndex];
                 string reference = verse.Reference;
                 // translate reference from Book Chapter:Verse to Book.Chapter.Verse
                 int firstSpaceIndex = reference.IndexOf(' ');
@@ -312,7 +312,7 @@ namespace AdvancedAligner
                         // add the title as a separate verse with verse number 0
                         string titleReferenceDN = $"{bookName}.{chapter}.0";
                         string titleReference = $"{versionBookName} {chapter}:0";
-                        TargetBible[updatedIndex] = new TargetVerse(titleReference, titleReferenceDN, psalmsTitles[psalmKey]);
+                        TargetBible[updatedIndex] = new ParserTargetVerse(titleReference, titleReferenceDN, psalmsTitles[psalmKey]);
                         referenceIndices[titleReference] = updatedIndex++;
                         // remove title text from begining of verse
                         verseText = verse.TranslationText.Substring(psalmsTitles[psalmKey].Length).Trim();
@@ -321,7 +321,7 @@ namespace AdvancedAligner
                 string versionReference = $"{versionBookName} {chapter}:{verseNumber}";
                 string dotNotationReference = $"{bookName}.{chapter}.{verseNumber}";
 
-                TargetBible[updatedIndex] = new TargetVerse(versionReference, dotNotationReference, verseText);
+                TargetBible[updatedIndex] = new ParserTargetVerse(versionReference, dotNotationReference, verseText);
                 referenceIndices[dotNotationReference] = updatedIndex++;
             }
         }

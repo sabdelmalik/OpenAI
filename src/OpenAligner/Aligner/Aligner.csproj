@@ -10,6 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="DevExpress.Win" Version="25.2.5" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
   </ItemGroup>
@@ -23,6 +24,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="ExampleEditor\ExampleEditorForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="ExampleEditor\HebrewGridView.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="ExampleEditor\TargetGridView.cs">
+      <SubType>Component</SubType>
+    </Compile>
     <Compile Update="Properties\OpenAiSettings.Designer.cs">
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <AutoGen>True</AutoGen>

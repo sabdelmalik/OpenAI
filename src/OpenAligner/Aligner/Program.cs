@@ -1,3 +1,4 @@
+using AdvancedAligner.ExampleEditor;
 using AdvancedAligner.Examples;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -42,6 +43,10 @@ namespace AdvancedAligner
                 services.AddSingleton<AlignmentService>();
                 services.AddSingleton<ExamplesDatabase>();
                 services.AddSingleton<ExampleSelector>();
+                services.AddSingleton<ReferenceListSelection>();
+                services.AddSingleton<ReferenceRangeSelection>();
+                services.AddSingleton<ExampleEditorForm>();
+                services.AddSingleton<ExampleEditorForm>();
             });
 
 

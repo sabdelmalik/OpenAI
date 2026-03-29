@@ -50,7 +50,7 @@ namespace AdvancedAligner.Examples
         {
             if (!File.Exists(_filePath))
             {
-                Examples = new List<ExampleAlignment>();
+                Examples = new();
                 return;
             }
 

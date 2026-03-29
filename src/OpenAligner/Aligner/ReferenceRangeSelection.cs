@@ -12,32 +12,38 @@ namespace AdvancedAligner
 {
     public partial class ReferenceRangeSelection : Form
     {
-        TargetParser versionParser;
+        List<string> bookNames = new List<string>();
+
+        TargetParser targetParser;
         int lastSelectedBookOffset = 0;
 
         bool loadInProgress = true;
 
-        public ReferenceRangeSelection()
+        public ReferenceRangeSelection(TargetParser targetParser)
         {
             InitializeComponent();
+            this.targetParser = targetParser;
         }
 
         private void ReferenceRangeSelection_Load(object sender, EventArgs e)
         {
             labelFirstError.Visible = false;
             labelLastError.Visible = false;
+
+            loadInProgress = true;
+
+            Initialise();
         }
 
-        List<string> bookNames = new List<string>();
 
-        public void Initialise(TargetParser versionParser)
+        private void Initialise()
         {
-            this.versionParser = versionParser;
+            this.targetParser = targetParser;
 
             // populate the combo boxes with the bookCounts from the version parser
             bookNames = new List<string>();
 
-            foreach (var bookCount in versionParser.bookCounts)
+            foreach (var bookCount in targetParser.bookCounts)
             {
                 bookNames.Add(bookCount.Key);
             }
@@ -55,7 +61,7 @@ namespace AdvancedAligner
         private void cbFirstBook_SelectedIndexChanged(object sender, EventArgs e)
         {
             string bookName = cbFirstBook.SelectedItem.ToString();
-            BookDetails bookDetails = versionParser.bookCounts[bookName];
+            BookDetails bookDetails = targetParser.bookCounts[bookName];
             List<string> chapterNumbers = new List<string>();
 
             int chapterCount = bookDetails.ChapterVerses.Count;
@@ -111,7 +117,7 @@ namespace AdvancedAligner
         private void cbLastBook_SelectedIndexChanged(object sender, EventArgs e)
         {
             string bookName = cbLastBook.SelectedItem.ToString();
-            BookDetails bookDetails = versionParser.bookCounts[bookName];
+            BookDetails bookDetails = targetParser.bookCounts[bookName];
             List<string> chapterNumbers = new List<string>();
 
             int chapterCount = bookDetails.ChapterVerses.Count;
@@ -134,7 +140,7 @@ namespace AdvancedAligner
                 return;
             }
             labelFirstError.Visible = false;
-            BookDetails bookDetails = versionParser.bookCounts[cbFirstBook.SelectedItem.ToString()];
+            BookDetails bookDetails = targetParser.bookCounts[cbFirstBook.SelectedItem.ToString()];
             List<string> verseNumbers = new List<string>();
 
             int selectedChapter = 1;
@@ -146,14 +152,14 @@ namespace AdvancedAligner
                 verseNumbers.Add(i.ToString());
             }
 
-            
+
             cbFirstVerse.Items.Clear();
             cbFirstVerse.Items.AddRange(verseNumbers.ToArray());
             cbFirstVerse.Text = "1";
 
 
 
-            
+
 
         }
 
@@ -166,7 +172,7 @@ namespace AdvancedAligner
                 return;
             }
             labelLastError.Visible = false;
-            BookDetails bookDetails = versionParser.bookCounts[cbLastBook.SelectedItem.ToString()];
+            BookDetails bookDetails = targetParser.bookCounts[cbLastBook.SelectedItem.ToString()];
             List<string> verseNumbers = new List<string>();
 
             int selectedChapter = 1;
@@ -181,13 +187,13 @@ namespace AdvancedAligner
             cbLastVerse.Items.AddRange(verseNumbers.ToArray());
             cbLastVerse.Text = "1";
 
-            if(loadInProgress)
+            if (loadInProgress)
             {
                 loadInProgress = false;
                 string previousFirstReference = Properties.OpenAiSettings.Default.FirstReference;
                 string previousLastReference = Properties.OpenAiSettings.Default.LastReference;
-                string[] firstParts = previousFirstReference.Split(new char[] { '.' } );
-                string[] lastParts = previousLastReference.Split(new char[] {'.'});
+                string[] firstParts = previousFirstReference.Split(new char[] { '.' });
+                string[] lastParts = previousLastReference.Split(new char[] { '.' });
 
                 if (firstParts.Length == 3)
                 {
@@ -253,14 +259,14 @@ namespace AdvancedAligner
             // Validate that the first reference is before the last reference
             // that is, the index of the selected firstBook, firstChapter and firstVerse
             // are less than the index of the selected lastBook, lastChapter and lastVerse
-                int firstBookIndex = cbFirstBook.SelectedIndex;
-                int firstChapterIndex = cbFirstChapter.SelectedIndex;
-                int firstVerseIndex = cbFirstVerse.SelectedIndex;
-    
-                int lastBookIndex = cbLastBook.SelectedIndex + lastSelectedBookOffset;
-                int lastChapterIndex = cbLastChapter.SelectedIndex;
-                int lastVerseIndex = cbLastVerse.SelectedIndex;
-            if(firstBookIndex > lastBookIndex ||
+            int firstBookIndex = cbFirstBook.SelectedIndex;
+            int firstChapterIndex = cbFirstChapter.SelectedIndex;
+            int firstVerseIndex = cbFirstVerse.SelectedIndex;
+
+            int lastBookIndex = cbLastBook.SelectedIndex + lastSelectedBookOffset;
+            int lastChapterIndex = cbLastChapter.SelectedIndex;
+            int lastVerseIndex = cbLastVerse.SelectedIndex;
+            if (firstBookIndex > lastBookIndex ||
                 (firstBookIndex == lastBookIndex && firstChapterIndex > lastChapterIndex) ||
                 (firstBookIndex == lastBookIndex && firstChapterIndex == lastChapterIndex && firstVerseIndex > lastVerseIndex))
             {

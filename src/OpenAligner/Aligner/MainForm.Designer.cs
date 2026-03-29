@@ -42,6 +42,7 @@
             specialSearchToolStripMenuItem = new ToolStripMenuItem();
             openFileDialog1 = new OpenFileDialog();
             traceBox = new RichTextBox();
+            editToolStripMenuItem = new ToolStripMenuItem();
             menuStrip1.SuspendLayout();
             SuspendLayout();
             // 
@@ -106,23 +107,23 @@
             // 
             // datbaseToolStripMenuItem
             // 
-            datbaseToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { clearToolStripMenuItem, reloadToolStripMenuItem });
+            datbaseToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { clearToolStripMenuItem, reloadToolStripMenuItem, editToolStripMenuItem });
             datbaseToolStripMenuItem.Name = "datbaseToolStripMenuItem";
-            datbaseToolStripMenuItem.Size = new Size(93, 29);
-            datbaseToolStripMenuItem.Text = "Datbase";
+            datbaseToolStripMenuItem.Size = new Size(102, 29);
+            datbaseToolStripMenuItem.Text = "Examples";
             // 
             // clearToolStripMenuItem
             // 
             clearToolStripMenuItem.Name = "clearToolStripMenuItem";
             clearToolStripMenuItem.Size = new Size(270, 34);
-            clearToolStripMenuItem.Text = "Clear";
+            clearToolStripMenuItem.Text = "Clear Local Data";
             clearToolStripMenuItem.Click += clearToolStripMenuItem_Click;
             // 
             // reloadToolStripMenuItem
             // 
             reloadToolStripMenuItem.Name = "reloadToolStripMenuItem";
             reloadToolStripMenuItem.Size = new Size(270, 34);
-            reloadToolStripMenuItem.Text = "Reload";
+            reloadToolStripMenuItem.Text = "Reload Database";
             reloadToolStripMenuItem.Click += reloadToolStripMenuItem_Click;
             // 
             // specialSearchToolStripMenuItem
@@ -145,6 +146,13 @@
             traceBox.Size = new Size(800, 417);
             traceBox.TabIndex = 2;
             traceBox.Text = "";
+            // 
+            // editToolStripMenuItem
+            // 
+            editToolStripMenuItem.Name = "editToolStripMenuItem";
+            editToolStripMenuItem.Size = new Size(270, 34);
+            editToolStripMenuItem.Text = "Edit";
+            editToolStripMenuItem.Click += editToolStripMenuItem_Click;
             // 
             // MainForm
             // 
@@ -180,5 +188,6 @@
         private ToolStripMenuItem datbaseToolStripMenuItem;
         private ToolStripMenuItem clearToolStripMenuItem;
         private ToolStripMenuItem reloadToolStripMenuItem;
+        private ToolStripMenuItem editToolStripMenuItem;
     }
 }

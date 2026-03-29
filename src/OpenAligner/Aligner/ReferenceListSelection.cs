@@ -11,26 +11,27 @@ namespace AdvancedAligner
 {
     public partial class ReferenceListSelection : Form
     {
-        TargetParser versionParser;
+        TargetParser targetParser;
 
-        public ReferenceListSelection()
+        public ReferenceListSelection(TargetParser targetParser)
         {
+            this.targetParser = targetParser;
             InitializeComponent();
         }
 
         private void ReferenceListSelection_Load(object sender, EventArgs e)
         {
             labelError.Visible = false;
+            Initialise();
         }
 
-        public void Initialise(TargetParser versionParser)
+        private void Initialise()
         {
-            this.versionParser = versionParser;
 
             // populate the combo boxes with the bookCounts from the version parser
             List<string> bookNames = new List<string>();
 
-            foreach (var bookCount in versionParser.bookCounts)
+            foreach (var bookCount in targetParser.bookCounts)
             {
                 bookNames.Add(bookCount.Key);
             }
@@ -43,6 +44,7 @@ namespace AdvancedAligner
             {
                 // convert comma seperated refs to a string array
                 string[] referenceList = refList.Split(new char[] { ',' } );
+                listBoxReferences.Items.Clear();
                 listBoxReferences.Items.AddRange(referenceList);    
             }
         }
@@ -50,7 +52,7 @@ namespace AdvancedAligner
         private void cbBook_SelectedIndexChanged(object sender, EventArgs e)
         {
             string bookName = cbBook.SelectedItem.ToString();
-            BookDetails bookDetails = versionParser.bookCounts[bookName];
+            BookDetails bookDetails = targetParser.bookCounts[bookName];
             List<string> chapterNumbers = new List<string>();
 
             int chapterCount = bookDetails.ChapterVerses.Count;
@@ -73,7 +75,7 @@ namespace AdvancedAligner
                 return;
             }
             labelError.Visible = false;
-            BookDetails bookDetails = versionParser.bookCounts[cbBook.SelectedItem.ToString()];
+            BookDetails bookDetails = targetParser.bookCounts[cbBook.SelectedItem.ToString()];
             List<string> verseNumbers = new List<string>();
 
             int selectedChapter = 1;

@@ -68,7 +68,7 @@ namespace AdvancedAligner
                     var gptResult = await openAiService.AlignVersesAsync(userPrompt, model);
                     result.Add(gptResult);
                     verses.Clear();
-                    if (!gptResult.success)
+                    if (gptResult is null || !gptResult.success)
                     {
                         // 3.3b if result is not success, add result to the list and and terminate the loop
                         break;
@@ -138,7 +138,7 @@ namespace AdvancedAligner
 
                 // 3.3a if result is success add result to the list and repeat 3 until all verses are done
                 result.Add(gptResult);
-                if (!gptResult.success)
+                if (gptResult is null || !gptResult.success)
                 {
                     // 3.3b if result is not success, add result to the list and and terminate the loop
                     break;
@@ -309,8 +309,8 @@ Input:
         
         private CombinedVerse GetCompinedVerse(int index)
         {
-            TargetVerse targetVerse = targetParser.TargetBible[index];
-            OtVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
+            ParserTargetVerse targetVerse = targetParser.TargetBible[index];
+            ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
             TahotVerse tahotVerse = tahotParser.HebrewBible[index];
 
             string reference = hebrewVerse.Reference;
@@ -388,8 +388,8 @@ Input:
 
             while (currentIndex <= endIndex)
             {
-                TargetVerse targetVerse = targetParser.TargetBible[currentIndex];
-                OtVerse hebrewVerse = hebrewBibleParser.HebrewBible[currentIndex];
+                ParserTargetVerse targetVerse = targetParser.TargetBible[currentIndex];
+                ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[currentIndex];
                 TahotVerse tahotVerse = tahotParser.HebrewBible[currentIndex];
                 
                 string reference = hebrewVerse.Reference;
@@ -471,8 +471,8 @@ Input:
             foreach(string reference in refrences)
             {
                 int index = hebrewBibleParser.referenceIndices[reference];
-                TargetVerse targetVerse = targetParser.TargetBible[index];
-                OtVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
+                ParserTargetVerse targetVerse = targetParser.TargetBible[index];
+                ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
                 VerseTokenCompact verseToken = new VerseTokenCompact
                 {
                     reference = reference,
@@ -522,8 +522,8 @@ Input:
 
             while(currentIndex <= endIndex)
             {
-                TargetVerse targetVerse = targetParser.TargetBible[currentIndex];
-                OtVerse hebrewVerse = hebrewBibleParser.HebrewBible[currentIndex];
+                ParserTargetVerse targetVerse = targetParser.TargetBible[currentIndex];
+                ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[currentIndex];
                 string reference = hebrewVerse.Reference;
 
                     VerseToken verseToken = new VerseToken
@@ -559,8 +559,8 @@ Input:
             List<VerseTokenCompact> verseTokens = new List<VerseTokenCompact>();
             while(currentIndex <= endIndex)
             {
-                TargetVerse targetVerse = targetParser.TargetBible[currentIndex];
-                OtVerse hebrewVerse = hebrewBibleParser.HebrewBible[currentIndex];
+                ParserTargetVerse targetVerse = targetParser.TargetBible[currentIndex];
+                ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[currentIndex];
                 string reference = hebrewVerse.Reference;
                     VerseTokenCompact verseToken = new VerseTokenCompact
                     {
@@ -596,8 +596,8 @@ Input:
             foreach (string reference in refrences)
             {
                 int index = hebrewBibleParser.referenceIndices[reference];
-                TargetVerse targetVerse = targetParser.TargetBible[index];
-                OtVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
+                ParserTargetVerse targetVerse = targetParser.TargetBible[index];
+                ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
                 TahotVerse tahotVerse = tahotParser.HebrewBible[index];
 
                 string hebrewText = tahotVerse.VerseText;

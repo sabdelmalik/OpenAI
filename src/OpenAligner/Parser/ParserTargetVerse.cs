@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 namespace AdvancedAligner
 {
-    public class TargetVerse
+    public class ParserTargetVerse
     {
-        public TargetVerse(string reference, string dotNotationReference, string translationText)
+        public ParserTargetVerse(string reference, string dotNotationReference, string translationText)
         {
             Reference = reference;
             DotNotationReference = dotNotationReference;
