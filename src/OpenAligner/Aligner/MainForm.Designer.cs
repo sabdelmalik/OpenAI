@@ -39,17 +39,21 @@
             datbaseToolStripMenuItem = new ToolStripMenuItem();
             clearToolStripMenuItem = new ToolStripMenuItem();
             reloadToolStripMenuItem = new ToolStripMenuItem();
+            editToolStripMenuItem = new ToolStripMenuItem();
+            importExampleResultsToolStripMenuItem = new ToolStripMenuItem();
             specialSearchToolStripMenuItem = new ToolStripMenuItem();
+            recoveryToolStripMenuItem = new ToolStripMenuItem();
+            recoverToolStripMenuItem = new ToolStripMenuItem();
             openFileDialog1 = new OpenFileDialog();
             traceBox = new RichTextBox();
-            editToolStripMenuItem = new ToolStripMenuItem();
+            recoverXToolStripMenuItem = new ToolStripMenuItem();
             menuStrip1.SuspendLayout();
             SuspendLayout();
             // 
             // menuStrip1
             // 
             menuStrip1.ImageScalingSize = new Size(24, 24);
-            menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, alignToolStripMenuItem, datbaseToolStripMenuItem, specialSearchToolStripMenuItem });
+            menuStrip1.Items.AddRange(new ToolStripItem[] { fileToolStripMenuItem, alignToolStripMenuItem, datbaseToolStripMenuItem, specialSearchToolStripMenuItem, recoveryToolStripMenuItem });
             menuStrip1.Location = new Point(0, 0);
             menuStrip1.Name = "menuStrip1";
             menuStrip1.Size = new Size(800, 33);
@@ -107,7 +111,7 @@
             // 
             // datbaseToolStripMenuItem
             // 
-            datbaseToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { clearToolStripMenuItem, reloadToolStripMenuItem, editToolStripMenuItem });
+            datbaseToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { clearToolStripMenuItem, reloadToolStripMenuItem, editToolStripMenuItem, importExampleResultsToolStripMenuItem });
             datbaseToolStripMenuItem.Name = "datbaseToolStripMenuItem";
             datbaseToolStripMenuItem.Size = new Size(102, 29);
             datbaseToolStripMenuItem.Text = "Examples";
@@ -115,16 +119,30 @@
             // clearToolStripMenuItem
             // 
             clearToolStripMenuItem.Name = "clearToolStripMenuItem";
-            clearToolStripMenuItem.Size = new Size(270, 34);
+            clearToolStripMenuItem.Size = new Size(290, 34);
             clearToolStripMenuItem.Text = "Clear Local Data";
             clearToolStripMenuItem.Click += clearToolStripMenuItem_Click;
             // 
             // reloadToolStripMenuItem
             // 
             reloadToolStripMenuItem.Name = "reloadToolStripMenuItem";
-            reloadToolStripMenuItem.Size = new Size(270, 34);
+            reloadToolStripMenuItem.Size = new Size(290, 34);
             reloadToolStripMenuItem.Text = "Reload Database";
             reloadToolStripMenuItem.Click += reloadToolStripMenuItem_Click;
+            // 
+            // editToolStripMenuItem
+            // 
+            editToolStripMenuItem.Name = "editToolStripMenuItem";
+            editToolStripMenuItem.Size = new Size(290, 34);
+            editToolStripMenuItem.Text = "Edit";
+            editToolStripMenuItem.Click += editToolStripMenuItem_Click;
+            // 
+            // importExampleResultsToolStripMenuItem
+            // 
+            importExampleResultsToolStripMenuItem.Name = "importExampleResultsToolStripMenuItem";
+            importExampleResultsToolStripMenuItem.Size = new Size(290, 34);
+            importExampleResultsToolStripMenuItem.Text = "ImportExampleResults";
+            importExampleResultsToolStripMenuItem.Click += importExampleResultsToolStripMenuItem_Click;
             // 
             // specialSearchToolStripMenuItem
             // 
@@ -132,6 +150,20 @@
             specialSearchToolStripMenuItem.Size = new Size(140, 29);
             specialSearchToolStripMenuItem.Text = "Special Search";
             specialSearchToolStripMenuItem.Click += specialSearchToolStripMenuItem_Click;
+            // 
+            // recoveryToolStripMenuItem
+            // 
+            recoveryToolStripMenuItem.DropDownItems.AddRange(new ToolStripItem[] { recoverToolStripMenuItem, recoverXToolStripMenuItem });
+            recoveryToolStripMenuItem.Name = "recoveryToolStripMenuItem";
+            recoveryToolStripMenuItem.Size = new Size(99, 29);
+            recoveryToolStripMenuItem.Text = "Recovery";
+            // 
+            // recoverToolStripMenuItem
+            // 
+            recoverToolStripMenuItem.Name = "recoverToolStripMenuItem";
+            recoverToolStripMenuItem.Size = new Size(270, 34);
+            recoverToolStripMenuItem.Text = "Recover";
+            recoverToolStripMenuItem.Click += recoverToolStripMenuItem_Click;
             // 
             // openFileDialog1
             // 
@@ -147,12 +179,12 @@
             traceBox.TabIndex = 2;
             traceBox.Text = "";
             // 
-            // editToolStripMenuItem
+            // recoverXToolStripMenuItem
             // 
-            editToolStripMenuItem.Name = "editToolStripMenuItem";
-            editToolStripMenuItem.Size = new Size(270, 34);
-            editToolStripMenuItem.Text = "Edit";
-            editToolStripMenuItem.Click += editToolStripMenuItem_Click;
+            recoverXToolStripMenuItem.Name = "recoverXToolStripMenuItem";
+            recoverXToolStripMenuItem.Size = new Size(270, 34);
+            recoverXToolStripMenuItem.Text = "Recover X";
+            recoverXToolStripMenuItem.Click += recoverXToolStripMenuItem_Click;
             // 
             // MainForm
             // 
@@ -189,5 +221,9 @@
         private ToolStripMenuItem clearToolStripMenuItem;
         private ToolStripMenuItem reloadToolStripMenuItem;
         private ToolStripMenuItem editToolStripMenuItem;
+        private ToolStripMenuItem importExampleResultsToolStripMenuItem;
+        private ToolStripMenuItem recoveryToolStripMenuItem;
+        private ToolStripMenuItem recoverToolStripMenuItem;
+        private ToolStripMenuItem recoverXToolStripMenuItem;
     }
 }

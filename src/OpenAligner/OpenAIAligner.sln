@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tokens", "Tokens\Tokens.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aligner", "Aligner\Aligner.csproj", "{06DB9FD5-D546-4EF7-A477-1EFB18679245}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAiAPI", "OpenAiAPI\OpenAiAPI.csproj", "{BD0A82F6-194B-42EA-BA27-AB5A82B241AF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenAiService", "OpenAiAPI\OpenAiService.csproj", "{BD0A82F6-194B-42EA-BA27-AB5A82B241AF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

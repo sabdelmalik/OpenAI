@@ -19,12 +19,12 @@ namespace AdvancedAligner
 
         private void SettingsForm_Load(object sender, EventArgs e)
         {
-            List<string> gptModels = Enum.GetNames(typeof(GptModel)).ToList();
+            List<string> gptModels = Enum.GetNames(typeof(AiModel)).ToList();
             comboBoxGptModels.Items.Clear();
             comboBoxGptModels.Items.AddRange(gptModels.ToArray());
 
-            string currentModel = Properties.OpenAiSettings.Default.GptModel;
-            GptModel gptModel;
+            string currentModel = Properties.OpenAiSettings.Default.AiModel;
+            AiModel gptModel;
             bool success = Enum.TryParse(currentModel, out gptModel);
             if (success)
             {
@@ -38,6 +38,7 @@ namespace AdvancedAligner
             maxPromptVerses.Value = Properties.OpenAiSettings.Default.MaxPromptVerses;
             cbPromptFiles.Checked = Properties.OpenAiSettings.Default.OutputPromptFiles;
             cbResultFiles.Checked = Properties.OpenAiSettings.Default.OutputResultFiles;
+            checkBoxRequestNotes.Checked = Properties.OpenAiSettings.Default.RequestNotes;
         }
 
         bool modelChanged = false;
@@ -50,10 +51,11 @@ namespace AdvancedAligner
         {
             if (modelChanged)
             {
-                Properties.OpenAiSettings.Default.GptModel = comboBoxGptModels.Text;
+                Properties.OpenAiSettings.Default.AiModel = comboBoxGptModels.Text;
                 Properties.OpenAiSettings.Default.MaxPromptVerses = (int)maxPromptVerses.Value;
                 Properties.OpenAiSettings.Default.OutputPromptFiles = cbPromptFiles.Checked;
                 Properties.OpenAiSettings.Default.OutputResultFiles = cbResultFiles.Checked;
+                Properties.OpenAiSettings.Default.RequestNotes = checkBoxRequestNotes.Checked;
                 Properties.OpenAiSettings.Default.Save();
             }
         }

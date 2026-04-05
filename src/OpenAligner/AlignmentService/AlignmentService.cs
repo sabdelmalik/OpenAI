@@ -1,5 +1,7 @@
 ﻿
 using AdvancedAligner.Examples;
+using Google.GenAI.Types;
+using Microsoft.Extensions.Logging;
 using OpenAiAPI;
 using OpenAiAPI.Models;
 using System.Reflection;
@@ -23,13 +25,19 @@ namespace AdvancedAligner
 
         OpenAiService openAiService;
 
-        public AlignmentService(OpenAiService openAiService, 
+        private static readonly Random _random = new Random();
+
+        private readonly ILogger<AlignmentService> logger;
+
+        public AlignmentService(ILogger<AlignmentService> logger,
+                                OpenAiService openAiService, 
                                 HebrewBibleParser hebrewBibleParser, 
                                 TahotParser taParser, 
                                 TargetParser targetParser,
                                 ExampleSelector exampleSelector,
                                 ExamplesDatabase exampleDatabase)
         {
+            this.logger = logger;
             this.openAiService = openAiService;
             this.hebrewBibleParser = hebrewBibleParser;
             this.tahotParser = taParser;
@@ -40,8 +48,10 @@ namespace AdvancedAligner
         }
 
 
-        public async Task<List<PromptResult>> Align(List<string> refrences, int maxPromptTokens, GptModel model)
+        public async Task<List<PromptResult>> Align(List<string> refrences, int maxPromptTokens, AiModel model, bool requestNotes)
         {
+            logger.LogInformation("Starting alignment for {Count} verses with max {MaxPromptTokens} verses per prompt.", refrences.Count, maxPromptTokens);
+
             List<PromptResult> result = new List<PromptResult>();
             
             // 1. ensure good parameters
@@ -52,6 +62,7 @@ namespace AdvancedAligner
                 return result;
             }
 
+            int totalDelay = 0;
             int remaining = refrences.Count;
             int currentIndex = 0;
             List<int> verses = new List<int>();
@@ -64,14 +75,38 @@ namespace AdvancedAligner
                 if (verses.Count == maxPromptTokens || remaining == 0)
                 {
                     List<CombinedVerse> combinedVerses = GetCombinedVerses(verses);
-                    string userPrompt = GetUserPrompt(combinedVerses);
+                    string userPrompt = GetUserPrompt(combinedVerses, requestNotes);
                     var gptResult = await openAiService.AlignVersesAsync(userPrompt, model);
+
                     result.Add(gptResult);
+                    
                     verses.Clear();
                     if (gptResult is null || !gptResult.success)
                     {
                         // 3.3b if result is not success, add result to the list and and terminate the loop
                         break;
+                    }
+                    LogResult(gptResult);
+                }
+
+
+                if (remaining > 0)
+                {
+                    if (totalDelay >= 60000)
+                    {
+                        // If total delay has reached 300 seconds (5 minutes), wait for a longer cooldown period before making the next request.
+                        int longPause = _random.Next(180, 300); // Cooldown period of 3 - 5 minutes
+                        await Task.Delay(longPause * 10000);
+                        totalDelay = 0; // Reset total delay after cooldown
+                    }
+                    else
+                    {
+                        // Standard Jittered Delay (25 to 55 seconds)
+                        // Breaks the 20-second "heartbeat" pattern that flags bots.
+                        int jitterDelay = _random.Next(6000, 20000);
+                        await Task.Delay(jitterDelay);
+
+                        totalDelay += jitterDelay;
                     }
                 }
             }
@@ -87,8 +122,10 @@ namespace AdvancedAligner
         /// <param name="endRef">last verse reference</param>
         /// <param name="maxPromptTokens">maximum verses per GPT prompt</param>
         /// <returns></returns>
-        public async Task<List<PromptResult>> Align(string startRef, string endRef, int maxPromptTokens, GptModel model)
+        public async Task<List<PromptResult>> Align(string startRef, string endRef, int maxPromptTokens, AiModel model, bool requestNotes)
         {
+            logger.LogInformation("Starting alignment from {StartRef} to {EndRef} with max {MaxPromptTokens} verses per prompt.", startRef, endRef, maxPromptTokens);
+
             List<PromptResult> result = new List<PromptResult>();
             // 1. ensure good parameters
             if (maxPromptTokens < 1 ||
@@ -106,7 +143,7 @@ namespace AdvancedAligner
                 { return result; }
 
             // 3. Loop: For each "maxPromptTokens" count, get an array Array of Combined Verses
-            
+            int totalDelay = 0;
             int remaining = endIndex - startIndex + 1;
             int currentStart = startIndex;
             while (remaining > 0)
@@ -131,7 +168,7 @@ namespace AdvancedAligner
                 currentStart += count;
 
                 List<CombinedVerse> combinedVerses = GetCombinedVerses(verses);
-                string userPrompt = GetUserPrompt(combinedVerses);
+                string userPrompt = GetUserPrompt(combinedVerses, requestNotes);
 
                 // 3.2 use OpenAiService to get the Alignments from GPT as a Prompt result
                 var gptResult = await openAiService.AlignVersesAsync(userPrompt, model);
@@ -143,13 +180,182 @@ namespace AdvancedAligner
                     // 3.3b if result is not success, add result to the list and and terminate the loop
                     break;
                 }
+
+                LogResult(gptResult);
+
+                if (remaining > 0)
+                {
+                    if (totalDelay >= 60000)
+                    {
+                        // If total delay has reached 300 seconds (5 minutes), wait for a longer cooldown period before making the next request.
+                        int longPause = _random.Next(180, 300); // Cooldown period of 3 - 5 minutes
+                        await Task.Delay(longPause * 10000);
+                        totalDelay = 0; // Reset total delay after cooldown
+                    }
+                    else
+                    {
+                        // Standard Jittered Delay (25 to 55 seconds)
+                        // Breaks the 20-second "heartbeat" pattern that flags bots.
+                        int jitterDelay = _random.Next(6000, 20000);
+                        await Task.Delay(jitterDelay);
+
+                        totalDelay += jitterDelay;
+                    }
+
+                }
             }
 
             return result;
         }
 
-        private string GetUserPrompt(List<CombinedVerse> verses)
+        private void LogResult(PromptResult result)
         {
+            logger.LogInformation("Received alignment result for reference {Reference} with success status {Success}.", result.ParsedResult[0].reference, result.success);
+
+            string logFolderName = "GeminiLogs";
+            if(!Directory.Exists(logFolderName))
+            {
+                Directory.CreateDirectory(logFolderName);
+            }
+
+            string timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
+            string outName = result.ParsedResult[0].reference.Replace(":", "_").Replace(".", "_");
+            string promptFileName = $"{logFolderName}\\Prompt-{outName}-{timestamp}.txt";
+            System.IO.File.WriteAllText(promptFileName, result.prompt);
+           
+            string resultFileName = $"{logFolderName}\\Result-{outName}-{timestamp}.json";
+            System.IO.File.WriteAllText(resultFileName, result.result);
+        }
+        private string GetUserPrompt2(List<CombinedVerse> verses, bool requestNotes)
+        {
+            string notesExample = requestNotes ?
+                $@", ""notes"": notes, ""Brief notes explaining each alignment decision""" :
+                "";
+
+            string notesRequest = requestNotes ?
+                "- Add brief notes explaining each alignment decision" :
+                "- DO NOT add any notes to the alignment result";
+             
+            JsonSerializerOptions options = new JsonSerializerOptions
+            {
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                WriteIndented = false
+            };
+
+            string json = System.Text.Json.JsonSerializer.Serialize(verses,options);
+
+            List<ExampleAlignment> exampleAlignments = null;
+
+            if (exampleSelector != null)
+            {
+                List<HebrewFeature> features = new();
+                foreach (var verse in verses)
+                {
+                    foreach (var token in verse.hebrew.tokens)
+                    {
+                        features.Add(new() { Lemma = token.lemma, POS = token.pos, Morph = token.morph });
+                    }
+                }
+                exampleAlignments = exampleSelector.GetBestExamples(features);
+            }
+            var exampleText = "";
+
+            if (exampleAlignments != null && exampleAlignments.Count > 0)
+            {
+                List<CombinedVerse> exampleVerses = new List<CombinedVerse>();
+                List<AlignmentResult> bestExampleAlignment = new();
+                foreach (var ex in exampleAlignments)
+                {
+                    int index = hebrewBibleParser.referenceIndices[ex.Reference];
+                    exampleVerses.Add(GetCompinedVerse(index)) ;
+                    bestExampleAlignment.Add(ex.Alignment);
+                }
+
+                exampleText = $@"
+Complete Examples Start ======
+Example Input 
+{JsonSerializer.Serialize(exampleVerses, options)}
+Example Alignment Response
+{JsonSerializer.Serialize(bestExampleAlignment, options)}
+Complete Examples End ======
+                ";
+            }
+
+string prompt = $@"
+You are aligning multiple Biblical Hebrew verses to their English target translations given as Input.
+The input target verse is given as a complete text, followed by the same text tokenised. 
+  Each target token contains:
+    - an index used as a token identifier 
+    - the actual word at that offset.
+The input Hebrew verse is given as a complete text, followed by the same text tokenised. 
+The Hebrew verb tokenization may split a Hebrew word into its components, for example, prefix, stem, suffix ...
+  Each target token contains:
+    - an index used as a token identifier 
+    - surface = the Hebrew word or particle
+    - Lemma = the dictionary form of a Hebrew word 
+    - pos = part of speech
+    - morph = morphological details
+    - gloss = the English translation of the surface
+
+Task:
+For EACH verse:
+Create a two-column table:
+    - column 1 to contain the target tokens indices (t).
+    - column 2 to contain the Hebrew tokens indices (h).
+For each target token 
+    - Add the target token's index to column 1 of new row.
+    - Use all the Hebrew token details: surface, lemma, pos, morphology and gloss to find the best matching Hebrew token, and add its index to column2 of the same row. 
+    - Only one Hebrew token index can be used per row.
+    - If no matching Hebrew token is found, leave column 2 of the same row empty.
+    - ALL indices of the target Must appear in column 1.
+Ignore the unmatched Hebrew indices.
+
+{requestNotes}
+
+Output the table in this JSON format:
+[
+{{
+""reference"": ""Genesis 1:1"",
+""alignments"": [
+{{""t"":[.],""h"":[.]{notesExample}}}, 
+…
+]
+}},
+{{
+""reference"": ""Genesis 1:2"",
+""alignments"": [
+{{""t"":[.],""h"":[.]{notesExample}}}, 
+…
+]
+}},
+…
+]
+where:
+""""t"""" = is the target token index
+""""h"""" = is the Hebrew token index or empty []   
+
+Return a raw JSON array with NO markdown formatting, NO code blocks, NO backticks, NO explanation.
+Do NOT wrap in ```json or ``` markers.
+Your response must be valid, parseable JSON that can be processed by JsonSerializer.Deserialize()
+Start directly with [ and end directly with ]
+
+Input:
+{json}
+";
+
+            return prompt;
+        }
+
+        private string GetUserPrompt1(List<CombinedVerse> verses, bool requestNotes)
+        {
+            string notesExample = requestNotes ?
+                $@", ""notes"": notes, ""Brief notes explaining each alignment decision""" :
+                "";
+
+            string notesRequest = requestNotes ?
+                "- Add brief notes explaining each alignment decision" :
+                "- DO NOT add any notes to the alignment result";
+             
             JsonSerializerOptions options = new JsonSerializerOptions
             {
                 Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
@@ -227,12 +433,166 @@ Example Start ====
 ]
 Example end ====
 */
-                    string prompt = $@"
+string prompt = $@"
 You are aligning multiple Biblical Hebrew verses to their English target translations given as Input.
 The input Hebrew verse is given as a complete text, followed by the same text tokenised. Each token has an index indicating its position in the verse. Each token may represent word, an affix, a conjunction, … Each token includes morphological information to help in the alignment
 The input target verse is given as a complete text, followed by the same text tokenised. Each token has an index indicating its position in the verse.
 
-Use the Complete Examples below for Guidance.
+The alignment is to be done in two steps:
+STEP 1:
+For EACH verse:
+Create a two column table:
+    - column 1 to contain the target tokens indices (t).
+    - column 2 to contain the Hebrew tokens indices (h).
+For each target token 
+    - Add the target token's index to column 1 of new row.
+    - Use all the Hebrew token details: surface, lemma, pos, morphology and gloss to find the best matching Hebrew token, and add its index to column2 of the same row. 
+    - In no matching hebrew token was found, leave column 2 of the same row empty.
+    - Exclude the matched Hebrew token, if any, from subsequent matches.
+    - ALL indices of the target Must appear in column 1.
+Ignore the unmatched Hebrew indices.
+
+STEP 2:
+Combine target indices when appropriate
+If two or more consecuitive rows, have the same Hebrew index merge them together with the target indices separated by commas.
+
+{requestNotes}
+
+Output the table in this JSON format:
+[
+{{
+""reference"": ""Genesis 1:1"",
+""alignments"": [
+{{""t"":[.],""h"":[.]{notesExample}}}, 
+…
+]
+}},
+{{
+""reference"": ""Genesis 1:2"",
+""alignments"": [
+{{""t"":[.],""h"":[.]{notesExample}}}, 
+…
+]
+}},
+…
+]
+where:
+""""t"""" = is target token indices or empty []
+""""h"""" = is Hebrew token indices or empty []   
+
+Return a raw JSON array with NO markdown formatting, NO code blocks, NO backticks, NO explanation.
+Do NOT wrap in ```json or ``` markers.
+Your response must be valid, parseable JSON that can be processed by JsonSerializer.Deserialize()
+Start directly with [ and end directly with ]
+
+Input:
+{json}
+";
+
+            return prompt;
+        }
+        private string GetUserPrompt(List<CombinedVerse> verses, bool requestNotes)
+        {
+            logger.LogInformation("Generating user prompt for {VerseCount} verses with requestNotes={RequestNotes}.", verses.Count, requestNotes);
+
+            bool useExamples = false;
+            string notesExample = requestNotes ?
+                $@", ""notes"": notes, ""Brief notes explaining each alignment decision""" :
+                "";
+
+            string notesRequest = requestNotes ?
+                "- Add brief notes explaining each alignment decision" :
+                "- DO NOT add any notes to the alignment result";
+
+            JsonSerializerOptions options = new JsonSerializerOptions
+            {
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                WriteIndented = false
+            };
+
+            string json = System.Text.Json.JsonSerializer.Serialize(verses, options);
+
+            List<ExampleAlignment> exampleAlignments = null;
+
+            if (exampleSelector != null)
+            {
+                List<HebrewFeature> features = new();
+                foreach (var verse in verses)
+                {
+                    foreach (var token in verse.hebrew.tokens)
+                    {
+                        features.Add(new() { Lemma = token.lemma, POS = token.pos, Morph = token.morph });
+                    }
+                }
+                exampleAlignments = exampleSelector.GetBestExamples(features);
+            }
+            var exampleText = "";
+
+            string includeExamples = useExamples ?
+                    "Use the Complete Examples below for Guidance." :
+                    "";
+
+            if (useExamples)
+            {
+                if (exampleAlignments != null && exampleAlignments.Count > 0)
+                {
+                    List<CombinedVerse> exampleVerses = new List<CombinedVerse>();
+                    List<AlignmentResult> bestExampleAlignment = new();
+                    foreach (var ex in exampleAlignments)
+                    {
+                        int index = hebrewBibleParser.referenceIndices[ex.Reference];
+                        exampleVerses.Add(GetCompinedVerse(index));
+                        bestExampleAlignment.Add(ex.Alignment);
+                    }
+
+                    exampleText = $@"
+Complete Examples Start ======
+Example Input 
+{JsonSerializer.Serialize(exampleVerses, options)}
+Example Alignment Response
+{JsonSerializer.Serialize(bestExampleAlignment, options)}
+Complete Examples End ======
+                ";
+                }
+            }
+            /*                    string prompt = $@"
+            You are aligning multiple Biblical Hebrew verses to their English target translations given as Input.
+            The input Hebrew verse is given as a complete text, followed by the same text tokenised. Each token has an index indicating its position in the verse. Each token may represent word, an affix, a conjunction, … Each token includes morphological information to help in the alignment
+            The input target verse is given as a complete text, followed by the same text tokenised. Each token has an index indicating its position in the verse.
+
+            The Input JSON is structured as in the following example:
+            Example Start ====
+            [
+            {{
+            ""reference"": ""Gen.1.1"",
+            ""hebrew"": {{
+            ""text"": ""בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ"",
+            ""tokens"": [
+            {{""i"": 0, ""surface"": ""בְּ"", ""lemma"": ""ב"", ""pos"": ""preposition"", ""morph"": ""inseparable_prep"",  gloss"": ""in""}},
+            {{“i"": 1, “surface"": ""רֵאשִׁ֖ית"", “lemma"": ""רֵאשִׁית"", “pos"": ""noun"", “morph"": ""common-fs-abs"", “gloss"": ""beginning"" }},
+            {{“i"": 2, “surface"": ""בָּרָ֣א"", “lemma"": ""בָּרָא"", “pos"": ""verb"", “morph"": ""qal-perfect(qatal)-3ms"", “gloss"": ""he created""}},
+            …
+            ]
+            }},
+            ""target"": {{
+            ""text"": ""In the beginning God created the heavens and the earth."",
+            ""tokens"": [
+            {{“i"": 0, “word"": ""In"" }},
+            {{“i"": 1, “word"": ""the""}},
+            {{“i"": 2, “word"": ""beginning""}},
+            …
+            ]
+            }}
+            }}
+            ]
+            Example end ====
+            */
+            string prompt = $@"
+You are aligning multiple Biblical Hebrew verses to their English target translations given as Input.
+The input Hebrew verse is given as a complete text, followed by the same text tokenised. Each token has an index indicating its position in the verse. Each token may represent word, an affix, a conjunction, … Each token includes morphological information to help in the alignment
+The input target verse is given as a complete text, followed by the same text tokenised. Each token has an index indicating its position in the verse.
+
+{includeExamples}
 
 Task:
 For EACH verse:
@@ -258,21 +618,21 @@ In the output JSON
 - Target indices should appear in the same order as in the input
 - If a target token does not have a Hebrew equivalent, its Hebrew indices will be empty []
 - Ignore a Hebrew token if it does not correspond to any of the target tokens.
-- Add brief notes explaining each alignment decision
+{requestNotes}
 
 The output returned should be JSON in this format:
 [
 {{
 ""reference"": ""Genesis 1:1"",
 ""alignments"": [
-{{""t"":[...],""h"":[..], ""notes"": notes, ""Brief notes explaining each alignment decision""}}, 
+{{""t"":[...],""h"":[..]{notesExample}}}, 
 …
 ]
 }},
 {{
 ""reference"": ""Genesis 1:2"",
 ""alignments"": [
-{{""t"":[...],""h"":[..], ""notes"": notes, ""Brief notes explaining each alignment decision""}}, 
+{{""t"":[...],""h"":[..]{notesExample}}}, 
 …
 ]
 }},
@@ -294,9 +654,10 @@ Input:
             return prompt;
         }
 
-
         private List<CombinedVerse> GetCombinedVerses(List<int> verseIndices)
         {
+            logger.LogInformation("Combining verse data for {VerseCount} verses.", verseIndices.Count);
+
             List<CombinedVerse> verses = new List<CombinedVerse>();
 
             foreach (int currentIndex in verseIndices)
@@ -309,6 +670,8 @@ Input:
         
         private CombinedVerse GetCompinedVerse(int index)
         {
+            logger.LogInformation("Combining verse data for verse index {VerseIndex}.", index);
+
             ParserTargetVerse targetVerse = targetParser.TargetBible[index];
             ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[index];
             TahotVerse tahotVerse = tahotParser.HebrewBible[index];
@@ -451,7 +814,7 @@ Input:
                 WriteIndented = false
             });
 
-            File.WriteAllText("promptTokens.json", promptTokensJson);
+            System.IO.File.WriteAllText("promptTokens.json", promptTokensJson);
 
             return promptTokensJson;
         }
@@ -488,7 +851,7 @@ Input:
                 WriteIndented = false
             });
             promptTokensJson = promptTokensJson.Replace("version_tokens", "english_tokens"); // remove zero-width space characters from the JSON string
-            File.WriteAllText("promptCompactTokens.json", promptTokensJson);
+            System.IO.File.WriteAllText("promptCompactTokens.json", promptTokensJson);
             return promptTokensJson;
 
         }
@@ -544,7 +907,7 @@ Input:
                 WriteIndented = false
             });
 
-            File.WriteAllText("promptTokens.json", promptTokensJson);
+            System.IO.File.WriteAllText("promptTokens.json", promptTokensJson);
 
             return promptTokensJson;
         }
@@ -577,7 +940,7 @@ Input:
                 Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
                 WriteIndented = false
             });
-            File.WriteAllText("promptCompactTokens.json", promptTokensJson);
+            System.IO.File.WriteAllText("promptCompactTokens.json", promptTokensJson);
             return promptTokensJson;
         }
 
@@ -655,7 +1018,7 @@ Input:
             });
 
             //promptTokensJson = promptTokensJson.Replace("version_tokens", "english_tokens"); // remove zero-width space characters from the JSON string
-            File.WriteAllText("promptTokens.json", promptTokensJson);
+            System.IO.File.WriteAllText("promptTokens.json", promptTokensJson);
             return promptTokensJson;
 
         }

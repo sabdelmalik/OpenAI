@@ -9,7 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\OpenAiAPI\OpenAiAPI.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\OpenAiAPI\OpenAiService.csproj" />
     <ProjectReference Include="..\Parser\Parser.csproj" />
     <ProjectReference Include="..\Tokens\Tokens.csproj" />
   </ItemGroup>

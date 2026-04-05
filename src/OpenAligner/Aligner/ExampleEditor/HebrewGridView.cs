@@ -50,7 +50,7 @@ namespace BibleTaggingUtil.Editor
                     foreach (DataGridViewCell cell in this.SelectedCells)
                     {
                         if (!selctedColumns.Contains(cell.ColumnIndex))
-                        selctedColumns.Add(cell.ColumnIndex);
+                            selctedColumns.Add(cell.ColumnIndex);
                     }
                     selctedColumns.Sort();
                     DragData dragData = new DragData();
@@ -70,7 +70,7 @@ namespace BibleTaggingUtil.Editor
                         for (int i = 0; i < this.RowCount; i++)
                         {
                             rowIndex = i;
-                            columnIndex = i;
+                            columnIndex = column;
                             source = this;
                             var cells = this.Rows[i].Cells;
                             string rowTitleS = cells[0].Value as string;
@@ -101,13 +101,13 @@ namespace BibleTaggingUtil.Editor
                                     break;
                             }
                         }
-
-                        // add column data to the Drag Data
                         dragData.Add(rowIndex, columnIndex,
                             index, gloss, word, lemma, pos, morph, strong,
                             source);
-                        this.DoDragDrop(dragData, DragDropEffects.Copy);
+
                     }
+                    // add column data to the Drag Data
+                    this.DoDragDrop(dragData, DragDropEffects.Copy);
                 }
             }
             catch (Exception ex)
@@ -117,6 +117,11 @@ namespace BibleTaggingUtil.Editor
             }
 
             base.OnCellMouseDown(e);
+        }
+
+        public void Clear()
+        {
+            this.Rows.Clear();
         }
 
         public void Update(string reference)

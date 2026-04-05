@@ -1,6 +1,5 @@
 ﻿using AdvancedAligner;
 using AdvancedAligner.Examples;
-using DevExpress.Pdf.Native;
 using Microsoft.VisualBasic.Devices;
 using OpenAiAPI.Models;
 using System;
@@ -32,6 +31,10 @@ namespace BibleTaggingUtil.Editor
         public event RefernceHighlightRequestEventHandler RefernceHighlightRequest;
         public event GotoVerseRequestEventHandler GotoVerseRequest;
 
+        AlignmentResult currentResult;
+        ParserHebrewVerse hebrewVerse;
+        ParserTargetVerse targetVerse;
+
         public TargetGridView()
         {
             this.ContextMenuStrip = new ContextMenuStrip();
@@ -52,17 +55,31 @@ namespace BibleTaggingUtil.Editor
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         public ExamplesDatabase ExamplesDatabase
         {
-            set 
-            { 
-                this.examplesDatabase = value; 
-
+            set
+            {
+                this.examplesDatabase = value;
+                examples.Clear();
                 // parse the examples from the database into the examples dictionary
-                foreach(var ex in examplesDatabase.Examples)
+                foreach (var ex in examplesDatabase.Examples)
                 {
                     examples[ex.Reference] = ex.Alignment;
                 }
             }
         }
+
+        public Dictionary<string, AlignmentResult> Examples
+            { get { return this.examples; } }
+
+        public void Remove (string reference)
+        {
+            this.examples.Remove(reference);
+        }
+
+        public void Clear()
+        {
+            this.Rows.Clear();
+        }
+
         public bool IsLastWord
         {
             get
@@ -204,6 +221,9 @@ namespace BibleTaggingUtil.Editor
                             firstMergeIndex = this.SelectedCells[i].ColumnIndex;
                     }
 
+                    currentResult.Merge(firstMergeIndex - 1, this.SelectedCells.Count);
+                    UpdateGrid();
+
                     //this.CurrentVerse.Merge(firstMergeIndex, this.SelectedCells.Count);
 
                     //if (firstMergeIndex == 0 && SelectedCells.Count == 2 && (string)this[firstMergeIndex, 0].Value == "«")
@@ -254,6 +274,10 @@ namespace BibleTaggingUtil.Editor
                         if (this.SelectedCells[i].ColumnIndex < splitIndex)
                             splitIndex = this.SelectedCells[i].ColumnIndex;
                     }
+
+                    currentResult.Split(splitIndex - 1);
+                    UpdateGrid();
+
                     //this.CurrentVerse.split(splitIndex);
 
                     //this.Update(CurrentVerse);
@@ -271,6 +295,8 @@ namespace BibleTaggingUtil.Editor
                     int savedRow = this.CurrentCell.RowIndex;
 
                     int col = this.SelectedCells[0].ColumnIndex;
+                    currentResult.ReplaceHebrew(col, new List<int>());
+                    UpdateGrid();
                     //this.CurrentVerse[col].Strong = new string(new string[] { "" });
                     //this.Update(CurrentVerse);
                     //SaveVerse(CurrentVerseReferece);
@@ -327,16 +353,21 @@ namespace BibleTaggingUtil.Editor
         /// <param name="targetVerse">tagged targetVerse</param>
         public void Update(string reference)
         {
-            //«
+            hebrewVerse = hebrewBibleParser.HebrewBible[targetParser.referenceIndices[reference]];
+            targetVerse = targetParser.TargetBible[targetParser.referenceIndices[reference]];
+            currentResult = examples[reference];
+            currentResult = examples[reference];
+
+            if (targetVerse == null)
+                return;
+
+            UpdateGrid();
+
+        }
+        private void UpdateGrid()
+        {
             try
             {
-                ParserHebrewVerse hebrewVerse = hebrewBibleParser.HebrewBible[targetParser.referenceIndices[reference]];
-                ParserTargetVerse targetVerse = targetParser.TargetBible[targetParser.referenceIndices[reference]];
-                AlignmentResult result = examples[reference];
-
-                if (targetVerse == null)
-                    return;
-
                 this.Rows.Clear();
 
 
@@ -360,7 +391,7 @@ namespace BibleTaggingUtil.Editor
                 morphsH.Add(RowTitles.MRF.ToString());
                 strongsH.Add(RowTitles.SRG.ToString());
 
-                var pairs = result.alignments;
+                var pairs = currentResult.alignments;
                 foreach (var pair in pairs)
                 {
                     string idx = string.Empty;
@@ -379,7 +410,7 @@ namespace BibleTaggingUtil.Editor
                     string lemma = string.Empty;
                     string pos = string.Empty;
                     string morph = string.Empty;
-                    string strong = string.Empty;
+                                    string strong = string.Empty;
                     foreach (var i in pair.h)
                     {
                         index += $"{i}, ";
@@ -398,23 +429,6 @@ namespace BibleTaggingUtil.Editor
                     morphsH.Add(morph.Trim().Trim(','));
                     strongsH.Add(strong.Trim().Trim(','));
                 }
-
-
-                //var tokens = targetVerse.Tokens;
-                //for (int i = 0; i < tokens.Count; i++)
-                //{
-                //    var word = tokens[i];
-                //    indices.Add(word.index.ToString());
-                //    words.Add(word.surface);
-
-                //    indicesH.Add(" ");
-                //    glossH.Add(" ");
-                //    wordsH.Add(" ");
-                //    lemmasH.Add(" ");
-                //    posH.Add(" ");
-                //    morphsH.Add(" ");
-                //    strongsH.Add(" ");
-                //}
 
                 this.ColumnCount = indices.Count;
                 this.Rows.Add(indices.ToArray());
@@ -438,7 +452,6 @@ namespace BibleTaggingUtil.Editor
                 //Tracing.TraceException(name, ex.Message);
             }
         }
-
 
        #endregion Save & Update
 
@@ -539,7 +552,18 @@ namespace BibleTaggingUtil.Editor
                     this.ClearSelection();
                     this[e.ColumnIndex, e.RowIndex].Selected = true;
                 }
-                //FireRefernceHighlightRequest((string)this.Rows[Rows.Count - 1].Cells[e.ColumnIndex].Value);
+                // find the IDX row
+                string hebrewIndices = string.Empty;
+                for (int i = 0; i < this.Rows.Count; i++)
+                {
+                    // our row has cell 0 value = RowTitles.IDX.ToString()
+                    if ((string)this.Rows[i].Cells[0].Value == RowTitles.IDX.ToString())
+                    {
+                        hebrewIndices = (string)this.Rows[i].Cells[e.ColumnIndex].Value;
+                        break;
+                    }
+                }
+                FireRefernceHighlightRequest(hebrewIndices);
 
             }
             //base.OnCellEnter(e);
@@ -616,6 +640,8 @@ namespace BibleTaggingUtil.Editor
                     string morph = string.Empty;
                     string strong = string.Empty;
 
+                    List<int> hebrewList = new List<int>();   
+
                     int column = hittest.ColumnIndex;
                     foreach (var data in dragData.Data)
                     {
@@ -624,6 +650,8 @@ namespace BibleTaggingUtil.Editor
                             if (data.ColumnIndex == hittest.ColumnIndex)
                                 return;
                         }
+
+                        hebrewList.Add(int.Parse(data.Index));
 
                         index += $"{data.Index}, ";
                         gloss += $"{data.Gloss}, ";
@@ -634,73 +662,9 @@ namespace BibleTaggingUtil.Editor
                         strong += $"{data.Strong}, ";
                     }
 
-                    //Tracing.TraceInfo(name, $"Hit at column {hittest.ColumnIndex}, row {hittest.RowIndex}");
-                    //int savedColumn = this.CurrentCell.ColumnIndex;
-                    //int savedRow = this.CurrentCell.RowIndex;
+                    currentResult.ReplaceHebrew(hittest.ColumnIndex - 1, hebrewList);
+                    UpdateGrid();
 
-                    for (int i = 0; i < this.RowCount; i++)
-                    {
-                        var cells = this.Rows[i].Cells;
-                        string rowTitleS = cells[0].Value as string;
-                        RowTitles title;
-                        Enum.TryParse<RowTitles>(rowTitleS, true, out title);
-                        switch (title)
-                        {
-                            case RowTitles.IDX:
-                                cells[column].Value = index.Trim().Trim(',');
-                                break;
-                            case RowTitles.ENG:
-                                cells[column].Value = gloss.Trim().Trim(','); 
-                                break;
-                            case RowTitles.HEB:
-                                cells[column].Value = word.Trim().Trim(',');
-                                break;
-                            case RowTitles.LEM:
-                                cells[column].Value = lemma.Trim().Trim(',');
-                                break;
-                            case RowTitles.POS:
-                                cells[column].Value = pos.Trim().Trim(',');
-                                break;
-                            case RowTitles.MRF:
-                                cells[column].Value = morph.Trim().Trim(',');
-                                break;
-                            case RowTitles.SRG:
-                                cells[column].Value = strong.Trim().Trim(',');
-                                break;
-                        }
-
-
-                        //this[hittest.ColumnIndex, Rows.Count - 1].Value = newValue.Trim();
-                        //this.CurrentVerse[hittest.ColumnIndex].StrongString = newValue.Trim();
-
-
-                        //if (Control.ModifierKeys == Keys.Control)
-                        //    this.CurrentVerse[hittest.ColumnIndex].Strong += droppedValue;
-                        //else
-                        //    this.CurrentVerse[hittest.ColumnIndex].Strong = droppedValue;
-
-                        //if (data.Source.Equals(this))
-                        //{
-                        //    //this[data.ColumnIndex, Rows.Count - 1].Value = string.Empty;
-                        //    if (Control.ModifierKeys != Keys.Control)
-                        //        this.CurrentVerse[data.ColumnIndex].Strong = new string(new string[] {""});
-                        //}
-                        //Update(CurrentVerse);
-                        //SaveVerse(CurrentVerseReferece);
-
-                        FireVerseViewChanged();
-
-                        this.ClearSelection();
-                        this[hittest.ColumnIndex, Rows.Count - 1].Selected = true;
-                        this.Rows[0].ReadOnly = true;
-
-                        this[hittest.ColumnIndex, Rows.Count - 1].Selected = true;
-                        this.CurrentCell = this[hittest.ColumnIndex, Rows.Count - 1];
-                        //if (!string.IsNullOrEmpty(((string)this[hittest.ColumnIndex, Rows.Count - 1].Value).ToString()))
-                        //    FireRefernceHighlightRequest((string)this[hittest.ColumnIndex, Rows.Count - 1].Value);
-
-                        this.Focus();
-                    }
                 }
             }
             catch (Exception ex)

@@ -19,6 +19,7 @@ using static System.Net.WebRequestMethods;
 
 namespace AdvancedAligner.Examples
 {
+    using System.Diagnostics;
     // ================= USAGE WITH DATABASE =================
     // Example usage:
     // var db = new ExampleDatabase("examples.json");
@@ -33,45 +34,89 @@ namespace AdvancedAligner.Examples
 
     public class ExamplesDatabase
     {
-        private readonly string _filePath;
+        private readonly string saveFolder = "ExamplesDB";
+        private readonly string backupFolderName = "Backup";
+        private readonly string backupFolderPath = string.Empty;
+        private readonly string fileName = "Examples";
+        private readonly string fileExtension = "json";
+        private readonly string dbFilePath = string.Empty;
+
         public List<ExampleAlignment> Examples { get; private set; } = new();
 
         public ExamplesDatabase()
         {
-            string folder = "ExamplesDB";
-            if(!Directory.Exists(folder))
-                Directory.CreateDirectory(folder);
+            if(!Directory.Exists(saveFolder))
+                Directory.CreateDirectory(saveFolder);
+            
+            backupFolderPath = Path.Combine(saveFolder, backupFolderName);
+            if (!Directory.Exists(backupFolderPath))
+                Directory.CreateDirectory(backupFolderPath);
 
-            _filePath = $@"{folder}\Examples.json";
+            dbFilePath = Path.Combine(saveFolder, $"{fileName}.{fileExtension}");  
+
             Load();
         }
 
         public void Load()
         {
-            if (!File.Exists(_filePath))
+            if (!File.Exists(dbFilePath))
             {
                 Examples = new();
                 return;
             }
 
-            var json = File.ReadAllText(_filePath);
+            var json = File.ReadAllText(dbFilePath);
             Examples = JsonSerializer.Deserialize<List<ExampleAlignment>>(json) ?? new List<ExampleAlignment>();
+
+
+            Dirty = false;
         }
 
+        public bool Dirty {  get; set; }
         public void Clear()
         {
             Examples.Clear();
+            Dirty = true;
         }
 
+        public int Delete(string reference)
+        { 
+            int result = Examples.RemoveAll(x => x.Reference == reference);
+            if (result > 0)
+                Dirty = true; 
+            
+            return result;
+        }
         public void Save()
         {
-            var json = JsonSerializer.Serialize(Examples, new JsonSerializerOptions
+            if (Dirty)
             {
-                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
-                WriteIndented = true
-            });
+                var json = JsonSerializer.Serialize(Examples, new JsonSerializerOptions
+                {
+                    Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
+                    WriteIndented = true
+                });
 
-            File.WriteAllText(_filePath, json);
+                if (File.Exists(dbFilePath))
+                {
+                    // backUp the current file by renaming it
+                    // the new name will be the fileName affixed by a timestamp 
+                    string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss").Replace(":","-");
+                    string destFileName = $"{fileName}-{timestamp}.{fileExtension}";
+                    string destPath = Path.Combine(backupFolderPath, destFileName);
+                    if (File.Exists(destPath))
+                    {
+                        // if a file with the same name already exists in the backup folder, append a guid to the filename
+                        string guid = Guid.NewGuid().ToString();
+                        destFileName = $"{fileName}-{timestamp}-{guid}.{fileExtension}";
+                        destPath = Path.Combine(backupFolderPath, destFileName);
+                    }
+                    File.Move(dbFilePath, destPath);
+                }
+                    
+                File.WriteAllText(dbFilePath, json);
+                Dirty = false;
+            }
         }
 
         public void AddExample(ExampleAlignment example)
@@ -81,7 +126,8 @@ namespace AdvancedAligner.Examples
                 return;
 
             Examples.Add(example);
-            Save();
+            Dirty = true;
+            //Save();
         }
     }
 

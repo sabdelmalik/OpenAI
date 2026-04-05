@@ -36,6 +36,7 @@
             maxPromptVerses = new NumericUpDown();
             cbPromptFiles = new CheckBox();
             cbResultFiles = new CheckBox();
+            checkBoxRequestNotes = new CheckBox();
             ((System.ComponentModel.ISupportInitialize)maxPromptVerses).BeginInit();
             SuspendLayout();
             // 
@@ -60,7 +61,7 @@
             // buttonOK
             // 
             buttonOK.DialogResult = DialogResult.OK;
-            buttonOK.Location = new Point(328, 244);
+            buttonOK.Location = new Point(328, 290);
             buttonOK.Name = "buttonOK";
             buttonOK.Size = new Size(112, 34);
             buttonOK.TabIndex = 2;
@@ -71,7 +72,7 @@
             // buttonCancel
             // 
             buttonCancel.DialogResult = DialogResult.Cancel;
-            buttonCancel.Location = new Point(31, 244);
+            buttonCancel.Location = new Point(31, 290);
             buttonCancel.Name = "buttonCancel";
             buttonCancel.Size = new Size(112, 34);
             buttonCancel.TabIndex = 3;
@@ -117,6 +118,16 @@
             cbResultFiles.Text = "Output Result Files";
             cbResultFiles.UseVisualStyleBackColor = true;
             // 
+            // checkBoxRequestNotes
+            // 
+            checkBoxRequestNotes.AutoSize = true;
+            checkBoxRequestNotes.Location = new Point(30, 224);
+            checkBoxRequestNotes.Name = "checkBoxRequestNotes";
+            checkBoxRequestNotes.Size = new Size(234, 29);
+            checkBoxRequestNotes.TabIndex = 6;
+            checkBoxRequestNotes.Text = "Request alignment notes";
+            checkBoxRequestNotes.UseVisualStyleBackColor = true;
+            // 
             // SettingsForm
             // 
             AcceptButton = buttonOK;
@@ -124,6 +135,7 @@
             AutoScaleMode = AutoScaleMode.Font;
             CancelButton = buttonCancel;
             ClientSize = new Size(800, 450);
+            Controls.Add(checkBoxRequestNotes);
             Controls.Add(cbResultFiles);
             Controls.Add(cbPromptFiles);
             Controls.Add(maxPromptVerses);
@@ -150,5 +162,6 @@
         private NumericUpDown maxPromptVerses;
         private CheckBox cbPromptFiles;
         private CheckBox cbResultFiles;
+        private CheckBox checkBoxRequestNotes;
     }
 }

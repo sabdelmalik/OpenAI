@@ -4,6 +4,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenAiAPI;
 using TAParser;
+using Serilog;
+using Serilog.Core;
+using Serilog.Enrichers.CallerInfo;
+
 
 namespace AdvancedAligner
 {
@@ -22,8 +26,22 @@ namespace AdvancedAligner
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
 
+            // Configure Serilog
+            Log.Logger = new LoggerConfiguration()
+                    .Enrich.WithCallerInfo(
+                        includeFileInfo: true,
+                        allowedAssemblies: new[] { "Aligner", "AlignmentService", "OpenAiService", "Parser", "Tokens" },
+                        filePathDepth: 3
+                        )
+                    .Enrich.WithProperty("Application", "Aligner")
+                    .WriteTo.File("logs/aligner.log",
+                                rollingInterval: RollingInterval.Day,
+                                retainedFileCountLimit: 50,
+                                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Namespace}] ({Method}) {Message} {SourceFile} {LineNumber} {NewLine} {Exception}")
+                    .CreateLogger();
+
             // DI
-            var host= CreateHostBuilder().Build();
+            var host = CreateHostBuilder().Build();
             Application.Run(host.Services.GetRequiredService<MainForm>());
         }
 
@@ -32,6 +50,7 @@ namespace AdvancedAligner
         /// </summary>
         /// <param name="services"></param>
         private static IHostBuilder CreateHostBuilder() => Host.CreateDefaultBuilder()
+            .UseSerilog() // Use Serilog for logging
             .ConfigureServices((context, services) =>
             {
                 services.AddTransient<MainForm>();

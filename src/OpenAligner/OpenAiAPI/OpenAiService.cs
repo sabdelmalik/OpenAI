@@ -1,8 +1,13 @@
-﻿using OpenAiAPI.Models;
+﻿using Google.GenAI;
+using Google.GenAI.Types;
+using Microsoft.Extensions.Logging;
+using OpenAiAPI.Models;
 using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using static System.Runtime.InteropServices.JavaScript.JSType;
+
 
 namespace OpenAiAPI
 {
@@ -13,81 +18,68 @@ namespace OpenAiAPI
     {
         private readonly HttpClient _http;
         private readonly Dictionary<string, string> _cache = new();
+        private Client geminiClient;
 
-        public OpenAiService()
+        private readonly ILogger<OpenAiService> logger;
+        public OpenAiService(ILogger<OpenAiService> logger)
         {
-            string apiKey = Environment.GetEnvironmentVariable("OPENAI_ALIGNER_KEY", EnvironmentVariableTarget.User);
+            this.logger = logger;
+            string apiKey = System.Environment.GetEnvironmentVariable("OPENAI_ALIGNER_KEY", EnvironmentVariableTarget.User);
             _http = new HttpClient();
             _http.DefaultRequestHeaders.Authorization =
                 new AuthenticationHeaderValue("Bearer", apiKey);
+
+            string geminiKey = System.Environment.GetEnvironmentVariable("GEMINI_API_KEY", EnvironmentVariableTarget.User);
+            geminiClient = new Client(apiKey: geminiKey);
         }
 
-        //public async Task<List<AlignmentResult>> AlignVersesAsync(object verses, GptModel model)
-        public async Task<PromptResult> AlignVersesAsync(object verses, GptModel model)
+        //public async Task<List<AlignmentResult>> AlignVersesAsync(object verses, AiModel model)
+
+        public async Task<PromptResult> AlignVersesAsync(string prompt, AiModel model)
         {
-            Stopwatch sw = Stopwatch.StartNew();
+            logger.LogInformation("AlignVersesAsync called with model {model}", model);
 
-            string? input = (verses is string) ?
-                verses.ToString() : JsonSerializer.Serialize(verses);
+            string aiModel = model.ToString().Replace("__", ".").Replace("_", "-");
 
-            if (input == null) 
+            AiProvider provider = AiProvider.Unknown;
+            if (aiModel.StartsWith("gpt"))
+                provider = AiProvider.OpenAI;
+            else if (aiModel.StartsWith("gemini"))
+                provider = AiProvider.Gemini;
+
+            if (provider == AiProvider.Unknown)
             {
-                return new PromptResult(false, string.Empty, string.Empty, 0, 0, model, "AlignVersesAsync: input is null"); 
+                return new PromptResult(false, prompt, string.Empty, 0, 0, aiModel, "AlignVersesAsync: unsupported Model");
             }
-
-//            if (_cache.ContainsKey(input))
-//                return ParseResult(_cache[input]);
-
-            string prompt = BuildPrompt(input);
-
-            PromptResult response = await CallLLM(prompt, model);
-
-            if (!IsValidJson(response.result))
-            {
-                // retry twice
-                for (int i = 0; i < 2; i++)
-                {
-                    response = await CallLLM(prompt, model);
-
-                    if (IsValidJson(response.result) && ValidateSchema(response.result))
-                        break;
-                }
-            }
-
-            _cache[input] = response.result;
-            sw.Stop();
-            long elapsedMilliseconds = sw.ElapsedMilliseconds;
-            // convert elapsedMilliseconds to hh:mm:ss.msc
-            TimeSpan t = TimeSpan.FromMilliseconds(elapsedMilliseconds);
-
-            response.time = t.ToString();
-            response.ParsedResult = ParseResult(response.result);
-
-            return response;
-        }
-
-        public async Task<PromptResult> AlignVersesAsync(string prompt, GptModel model)
-        {
-            Stopwatch sw = Stopwatch.StartNew();
-
+            
             if (string.IsNullOrEmpty(prompt))
             {
-                return new PromptResult(false, prompt, string.Empty, 0, 0, model, "AlignVersesAsync: input is null");
+                return new PromptResult(false, prompt, string.Empty, 0, 0, aiModel, "AlignVersesAsync: input is null");
             }
+
+            Stopwatch sw = Stopwatch.StartNew();
 
             //            if (_cache.ContainsKey(input))
             //                return ParseResult(_cache[input]);
 
             //string prompt = BuildPrompt(input);
 
-            PromptResult response = await CallLLM(prompt, model);
+            PromptResult response = provider switch
+            {
+                AiProvider.OpenAI => await CallLLM(prompt, aiModel),
+                AiProvider.Gemini => await CallGemini(prompt, aiModel),
+            };
 
             if (!IsValidJson(response.result))
             {
                 // retry twice
                 for (int i = 0; i < 2; i++)
                 {
-                    response = await CallLLM(prompt, model);
+                    response = provider switch
+                    {
+                        AiProvider.OpenAI => await CallLLM(prompt, aiModel),
+                        AiProvider.Gemini => await CallGemini(prompt, aiModel),
+                    };
 
                     if (IsValidJson(response.result) && ValidateSchema(response.result))
                         break;
@@ -105,7 +97,139 @@ namespace OpenAiAPI
 
             return response;
         }
-        private async Task<PromptResult> CallLLM(string prompt, GptModel gptModel)
+
+        private async Task<PromptResult> CallGemini(string prompt, string model)
+        {
+            logger.LogInformation("Calling Gemini API with model {model}", model);
+
+            bool success = true;
+            StringBuilder errorString = new StringBuilder();
+
+            string output = "{}"; // return empty JSON on error
+            int inputTokens = 0;
+            int outputTokens = 0;
+
+            PromptResult promptResult;
+            int thoughtsBudgetPerVerse = 2000;
+            var thinkingConfig = new ThinkingConfig()
+            {
+                IncludeThoughts = true,
+                ThinkingBudget = 20000,
+                ThinkingLevel = ThinkingLevel.High
+            };
+    
+            var config = new GenerateContentConfig()
+            {
+                Temperature = 0,
+                MaxOutputTokens = 20000
+            };
+            GenerateContentResponse response = null;
+            Candidate candidate = null;
+            while (true) 
+            {
+                try
+                {
+                    response = await geminiClient.Models.GenerateContentAsync(
+                        model: model,
+                        contents: prompt
+                    );
+
+                    logger.LogInformation("Gemini API call completed. Processing response...");
+                    // 1. Check if there are any candidates at all
+                    if (response.Candidates == null || response.Candidates.Count == 0)
+                    {
+                        success = false;
+                        string error = "No response was generated by the model.";
+                        errorString.AppendLine(error);
+                        logger.LogError(error);
+                    }
+                    candidate = response.Candidates[0];
+                    // 2. Check the FinishReason
+                    // FinishReason.Stop is the only "Success" state where the model finished naturally.
+                    if (candidate.FinishReason == FinishReason.Stop)
+                    {
+                        //Token generation reached a natural stopping point or a configured stop sequence.
+                        // extract all information from the candidate
+                        var metadata = response.UsageMetadata;
+                        int? promptTokenCount = metadata.PromptTokenCount; // The total number of tokens in the prompt 
+                        int? candidatesTokenCount = metadata.CandidatesTokenCount; // the total number of tokens in the generated candidates
+                        int? thoughtsTokenCount = metadata.ThoughtsTokenCount; // output only. The number of tokens that were part of the model's generated "thoughts" output if applicable.  
+                        int? x = metadata.TotalTokenCount; // promptTokenCount + candidatesTokenCount + thoughtsTokenCount
+                        int promptCount = metadata.PromptTokensDetails.Count;
+                        inputTokens = promptTokenCount ?? 0;
+                        outputTokens = thoughtsTokenCount ?? 0;
+                        outputTokens += candidatesTokenCount ?? 0;
+                        output = response.Text;
+                        promptResult = new PromptResult(success, prompt, output, inputTokens, outputTokens, model, errorString.ToString());
+                        logger.LogInformation("Gemini API call successful. Prompt tokens: {inputTokens}, Output tokens: {outputTokens}", inputTokens, outputTokens);
+                        break;
+                    }
+                    else if (candidate.FinishReason == FinishReason.MaxTokens)
+                    {
+                        success = false;
+                        string error = "Token generation reached the configured maximum output tokens.";
+                        errorString.AppendLine(error);
+                        logger.LogError(error);
+                        promptResult = new PromptResult(success, prompt, output, inputTokens, outputTokens, model, errorString.ToString());
+                        break;
+                    }
+                    else
+                    {
+                        success = false;
+                        string error = $"Model response finished with reason: {candidate.FinishReason}";
+                        errorString.AppendLine(error);
+                        logger.LogError(error);
+                        promptResult = new PromptResult(success, prompt, output, inputTokens, outputTokens, model, errorString.ToString());
+                        break;
+                    }
+
+                }
+                catch (HttpRequestException ex)
+                {
+                    success = false;
+                    string error = "HTTP error calling Gemini API:" + ex.Message;
+                    errorString.AppendLine(error);
+                    logger.LogCritical(error, ex.ToString());
+                    promptResult = new PromptResult(success, prompt, output, inputTokens, outputTokens, model, errorString.ToString());
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    success = false;
+                    if (ex.Message.Contains("429") || ex.Message.Contains("Quota"))
+                    {
+                        string error = "Rate limit exceeded or quota reached when calling Gemini API: " + ex.Message;
+                        errorString.AppendLine(error);
+                        logger.LogWarning(error);
+                        // we need to keep trying until we get a valid response, so we will not break here. Instead, we will wait for a few seconds and try again.
+                    }
+                    else if (ex.Message.Contains("500") || ex.Message.Contains("503"))
+                    {
+                        string error = "Server error when calling Gemini API: " + ex.Message;
+                        errorString.AppendLine(error);
+                        logger.LogError(error);
+                    }
+                    else if (ex.Message.Contains("404)"))
+                    {
+                        string error = "Model not found when calling Gemini API: " + ex.Message;
+                        errorString.AppendLine(error);
+                        logger.LogError(error);
+                    }
+                    else
+                    {
+                        string error = "Exception calling Gemini API: " + ex.Message;
+                        errorString.AppendLine(error);
+                        logger.LogCritical(error, ex.ToString());
+                    }
+                    promptResult = new PromptResult(success, prompt, output, inputTokens, outputTokens, model, errorString.ToString());
+                    break;
+                }
+            }
+
+            return promptResult;
+        }
+
+        private async Task<PromptResult> CallLLM(string prompt, string model)
         {
             bool success = true;
             StringBuilder errorString = new StringBuilder();
@@ -114,14 +238,7 @@ namespace OpenAiAPI
             int inputTokens = 0;
             int outputTokens = 0;
 
-            string modelToUse = gptModel switch
-            {
-                GptModel.gpt_4_1_mini => "gpt-4.1-mini",
-                GptModel.gpt_4_1 => "gpt-4.1",
-                _ => ""
-            };
-
-            if (modelToUse == "")
+            if (model == "")
             {
                 errorString.Append("Invalid Model");
                 success = false;
@@ -130,7 +247,7 @@ namespace OpenAiAPI
             {
                 var body = new
                 {
-                    model = modelToUse,
+                    model = model,
                     input = new[]
                     {
                     new { role = "user", content = prompt }
@@ -140,48 +257,65 @@ namespace OpenAiAPI
                 };
 
                 var json = JsonSerializer.Serialize(body);
-
-                var response = await _http.PostAsync(
-                    "https://api.openai.com/v1/responses",
-                    new StringContent(json, Encoding.UTF8, "application/json"));
-
-                var str = await response.Content.ReadAsStringAsync();
-
-                var parsed = JsonDocument.Parse(str);
-
-                try
+                int retries = 5;
+                int delay = 1000;
+                System.Net.Http.HttpResponseMessage response = null;
+                for (int i = 0; i < retries; i++)
                 {
-                    output = parsed.RootElement
-                        .GetProperty("output")[0]
-                        .GetProperty("content")[0]
-                        .GetProperty("text")
-                        .GetString();
-                    var usage = parsed.RootElement.GetProperty("usage");
-                    inputTokens = usage.GetProperty("input_tokens").GetInt32();
-                    outputTokens = usage.GetProperty("output_tokens").GetInt32();
-                }
-                catch (Exception ex)
-                {
-                    success = false;
+                    response = await _http.PostAsync(
+                        "https://api.openai.com/v1/responses",
+                        new StringContent(json, Encoding.UTF8, "application/json"));
 
-                    errorString.AppendLine("Error parsing LLM response: " + ex.Message);
-                    var values = JsonSerializer.Deserialize<Dictionary<string, object>>(parsed);
-
-                    if (values != null)
+                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
                     {
-                        errorString.AppendLine("Root element properties (from Dictionary):");
-                        // Get the keys from the dictionary
-                        foreach (var property in values)
+                        await Task.Delay(delay);
+                        delay *= 2; // exponential backoff
+                    }
+                    else
+                        break;
+                }
+
+                if (response != null)
+                {
+                    var str = await response.Content.ReadAsStringAsync();
+
+                    var parsed = JsonDocument.Parse(str);
+
+                    try
+                    {
+                        output = parsed.RootElement
+                            .GetProperty("output")[0]
+                            .GetProperty("content")[0]
+                            .GetProperty("text")
+                            .GetString();
+                        var usage = parsed.RootElement.GetProperty("usage");
+                        inputTokens = usage.GetProperty("input_tokens").GetInt32();
+                        outputTokens = usage.GetProperty("output_tokens").GetInt32();
+                    }
+                    catch (Exception ex)
+                    {
+                        success = false;
+
+                        errorString.AppendLine("Error parsing LLM response: " + ex.Message);
+                        var values = JsonSerializer.Deserialize<Dictionary<string, object>>(parsed);
+
+                        if (values != null)
                         {
-                            errorString.AppendLine($"- {property.Key} = {property.Value}");
+                            errorString.AppendLine("Root element properties (from Dictionary):");
+                            // Get the keys from the dictionary
+                            foreach (var property in values)
+                            {
+                                errorString.AppendLine($"- {property.Key} = {property.Value}");
+                            }
                         }
                     }
                 }
             }
-
-            return new PromptResult(success, prompt, output, inputTokens, outputTokens, gptModel, errorString.ToString());
+            return new PromptResult(success, prompt, output, inputTokens, outputTokens, model, errorString.ToString());
 
         }
+
+
 
         private bool IsValidJson(string text)
         {
@@ -226,100 +360,6 @@ namespace OpenAiAPI
             },
             required = new[] { "alignments" }
         };
-
-        private string BuildPrompt(string json)
-        {
-            return $@"
-You are aligning multiple Biblical Hebrew verses to their English target translations.
-The input Hebrew verse is given as a complete text, followed by the same text tokenised. Each token has an index indicating its position in the verse. Each token may represent word, an affix, a conjunction, … Each token includes morphological information to help in the alignment
-The input target verse is given as a complete text, followed by the same text tokenised. Each token has an index indicating its position in the verse.
-
-The Input JSON is structured as in the following example:
-Example Start ====
-[
-{{
-""reference"": ""Gen.1.1"",
-""hebrew"": {{
-""text"": ""בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ"",
-""tokens"": [
-{{""i"": 0, ""surface"": ""בְּ"", ""lemma"": ""ב"", ""pos"": ""preposition"", ""morph"": ""inseparable_prep"",  gloss"": ""in""}},
-{{“i"": 1, “surface"": ""רֵאשִׁ֖ית"", “lemma"": ""רֵאשִׁית"", “pos"": ""noun"", “morph"": ""common-fs-abs"", “gloss"": ""beginning"" }},
-{{“i"": 2, “surface"": ""בָּרָ֣א"", “lemma"": ""בָּרָא"", “pos"": ""verb"", “morph"": ""qal-perfect(qatal)-3ms"", “gloss"": ""he created""}},
-…
-]
-}},
-""target"": {{
-""text"": ""In the beginning God created the heavens and the earth."",
-""tokens"": [
-{{“i"": 0, “word"": ""In"" }},
-{{“i"": 1, “word"": ""the""}},
-{{“i"": 2, “word"": ""beginning""}},
-…
-]
-}}
-}}
-]
-Example end ====
-
-Task:
-For EACH verse:
-Align Hebrew tokens to target tokens. Pay attention to the Hebrew token details: lemma, pos, morphology and gloss.
-
-Rules:
-- Align by meaning
-- Use token indices
-- A TOKEN INDEX CAN BE USED ONLY ONCE IN THE ALIGNMENT
-- Allow one-to-many and many-to-many alignments
-- Do not combine articles and conjunctions with other words if they have a Hebrew token to align to
-- Combine target tokens when it makes morphological sense
-- if a target pronoun DOES NOT HAVE a corresponding Hebrew token, but is implied in the Hebrew verb, combine it with the target verb
-- Include ALL target words
-- Treat Hebrew words connected with a maqqef as seperate words (ignore the maqqef)
-- The Hebrew אֵת should not be mapped
-- IMPORTANT: Any token can be used only once in the mapping.
-- Try to always have Hebrew prepositions morph=inseparable_prep, appear in the output mapping
-  For example if לָ֭מָּה is represented by tokens 0=לָ֭ and 1=מָּה a corresponding Engilish token ""why"" would have its hebrew indices as [0,1] 
-
-In the output JSON 
-- tokens are identified by their indices
-- All target indices must appear in the map
-- Target indices should appear in the same order as in the input
-- A target token's index can appear only once in
-- If a target token does not have a Hebrew equivalent, its Hebrew indices will be empty []
-- A Hebrew token index can appear only once
-- Ignore a Hebrew token if it does not correspond to any of the target tokens.
-- Add brief notes explaining each alignment decision
-
-The output returned should be JSON in this format:
-[
-{{
-""reference"": ""Genesis 1:1"",
-""alignments"": [
-{{""t"":[...],""h"":[..], ""notes"": notes, ""Brief notes explaining each alignment decision""}}, 
-…
-]
-}},
-{{
-""reference"": ""Genesis 1:2"",
-""alignments"": [
-{{""t"":[...],""h"":[..], ""notes"": notes, ""Brief notes explaining each alignment decision""}}, 
-…
-]
-}},
-…
-]
-where """"t"""" = list of target token indices, """"h"""" = list of Hebrew token indices   
-
-Return a raw JSON array with NO markdown formatting, NO code blocks, NO backticks, NO explanation.
-Do NOT wrap in ```json or ``` markers.
-Your response must be valid, parseable JSON that can be processed by JsonSerializer.Deserialize()
-Start directly with [ and end directly with ]
-
-
-Input:
-{json}
-";
-        }
 
         private bool ValidateSchema(string json)
         {
@@ -368,7 +408,7 @@ Input:
         private double InputCostPer1K =  0.0004;
         private double OutputCostPer1K = 0.0016;
 
-        public PromptResult(bool success,string prompt, string result, int inputTokens, int outputTokens, GptModel model, string errorString)    
+        public PromptResult(bool success,string prompt, string result, int inputTokens, int outputTokens, string model, string errorString)    
         {
             this.success = success;
             this.prompt = prompt;
@@ -376,12 +416,27 @@ Input:
             this.inputTokens = inputTokens;
             this.outputTokens = outputTokens;
 
-            // pricing
-            if(model == GptModel.gpt_4_1)
+            InputCostPer1K = model switch
             {
-                InputCostPer1K = 0.002;
-                OutputCostPer1K = 0.008;
-            }
+                "gpt-4.1-mini" => 0.0004,
+                "gpt-4.1" => 0.002,
+                "gpt-5.1-mini" => 0.00075,
+                "gpt-5.1" => 0.0025,
+                "gemini-2.5-pro" => 0.00125,
+                "gemini-2.5-flash" => 0.0003,
+                _ => 0.0
+            };
+            OutputCostPer1K = model switch
+            {
+                "gpt-4.1-mini" => 0.0016,
+                "gpt-4.1" => 0.008,
+                "gpt-5.1-mini" => 0.0045,
+                "gpt-5.1" => 0.015,
+                "gemini-2.5-pro" => 0.010,
+                "gemini-2.5-flash" => 0.0025,
+                _ => 0.0
+            };
+
 
             this.model = model.ToString();
 
@@ -406,9 +461,22 @@ Input:
         public string prompt { get; set; }
     }
 
-    public enum GptModel
+    public enum AiModel
     {
-        gpt_4_1,
-        gpt_4_1_mini,
+        gpt_4__1,
+        gpt_4__1_mini,
+        gpt_5__1,
+        gpt_5__1_mini,
+        gemini_2__5_pro,
+        gemini_2__5_flash,
+        gemini_3_flash_preview,
+        gemini_3__1_pro_preview
+    }
+
+    public enum AiProvider
+    {
+        Unknown,
+        OpenAI,
+        Gemini
     }
 }

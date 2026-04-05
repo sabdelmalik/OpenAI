@@ -2,7 +2,7 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="AdvancedAligner.Properties" GeneratedClassName="OpenAiSettings">
   <Profiles />
   <Settings>
-    <Setting Name="GptModel" Type="System.String" Scope="User">
+    <Setting Name="AiModel" Type="System.String" Scope="User">
       <Value Profile="(Default)">gpt_4_1_mini</Value>
     </Setting>
     <Setting Name="FirstReference" Type="System.String" Scope="User">
@@ -22,6 +22,9 @@
     </Setting>
     <Setting Name="OutputResultFiles" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="RequestNotes" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
     </Setting>
   </Settings>
 </SettingsFile>
